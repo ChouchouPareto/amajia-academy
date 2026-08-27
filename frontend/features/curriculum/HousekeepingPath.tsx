@@ -1,10 +1,10 @@
 "use client";
 
-import { AlertCircle, ArrowLeft, ArrowRight, Check, Clock3, GraduationCap, LockKeyhole, Play, RefreshCcw, ShieldCheck } from "lucide-react";
-import Link from "next/link";
+import { AlertCircle, ArrowRight, Check, Clock3, LockKeyhole, Play, RefreshCcw, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { AppHeader } from "@/components/AppHeader";
 import { AppError, getHousekeepingCourses, startHousekeepingCourse } from "@/lib/api";
 import type { CourseCard } from "@/lib/types";
 
@@ -45,7 +45,7 @@ export function HousekeepingPath() {
 
   return (
     <main id="main-content" className="flow-shell curriculum-shell">
-      <header className="flow-topbar"><Link className="back-link" href="/"><ArrowLeft aria-hidden="true" size={20} />返回首页</Link><span className="prototype-badge"><GraduationCap aria-hidden="true" size={16} />家政入门</span></header>
+      <AppHeader current="tools" />
       <section className="curriculum-intro">
         <p className="section-kicker">从第一门开始，慢慢学</p>
         <h1>家政入门学习路径</h1>
