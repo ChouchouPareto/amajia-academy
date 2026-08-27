@@ -556,9 +556,10 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 
 /* 阿嬷学院 v0.4 家政学习纵向切片 */
 .academy-home { width: min(100%, 760px); margin: 0 auto; overflow: visible; padding: max(10px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom)); }
+.academy-navigation { min-height: 58px; }
 .academy-home::before { position: fixed; background: linear-gradient(180deg, #fffefb 0%, #fff 46%, #f6f8f7 100%); }
 .academy-home::after { display: none; }
-.academy-welcome { padding: 58px 5px 26px; }
+.academy-welcome { padding: 44px 5px 26px; }
 .academy-badge { display: inline-flex; min-height: 36px; align-items: center; gap: 7px; border-radius: 999px; background: var(--mint); padding: 6px 11px; color: #195f3f; font-size: 13px; font-weight: 800; }
 .academy-welcome > p { margin: 24px 0 2px; color: var(--ink-soft); font-size: 15px; font-weight: 750; }
 .academy-welcome h1 { margin: 0; color: var(--ink); font-size: clamp(46px, 13vw, 62px); letter-spacing: -.06em; line-height: 1.06; }

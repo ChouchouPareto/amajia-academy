@@ -51,7 +51,7 @@ export function HomeDashboard() {
             <p className="section-kicker">{action.eyebrow}</p>
             <h2>{action.title}</h2>
             <p>{action.copy}</p>
-            <Link className="academy-main-action" href={action.href}><span>{action.button}</span><ArrowRight aria-hidden="true" size={22} /></Link>
+            <Link className="academy-main-action specular-action" href={action.href}><span>{action.button}</span><ArrowRight aria-hidden="true" size={22} /></Link>
           </>
         )}
       </section>

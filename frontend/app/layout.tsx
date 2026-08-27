@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "@/components/reactbits/PillNav.css";
+import "@/components/reactbits/SpecularButton.css";
 
 export const metadata: Metadata = {
   title: "阿嬷学院｜从家政入门，学会一门新本事",
