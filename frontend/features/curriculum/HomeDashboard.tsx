@@ -65,8 +65,8 @@ export function HomeDashboard() {
       <section className="academy-shortcuts" aria-labelledby="shortcut-title">
         <div className="mobile-section-title"><div><span>清楚知道下一步</span><h2 id="shortcut-title">家政入门学习</h2></div></div>
         <div>
-          <Link href="/housekeeping"><span className="academy-icon tone-sky"><House aria-hidden="true" size={23} /></span><strong>六门基础课</strong><small>从职业规范学到衣物洗涤</small><ArrowRight aria-hidden="true" size={19} /></Link>
-          <Link href="/records"><span className="academy-icon tone-peach"><BookOpenCheck aria-hidden="true" size={23} /></span><strong>我的学习</strong><small>继续学习或回看已完成内容</small><ArrowRight aria-hidden="true" size={19} /></Link>
+          <Link href="/housekeeping"><span className="academy-icon tone-sky"><House aria-hidden="true" size={23} /></span><span className="academy-shortcut-copy"><strong>六门基础课</strong><small>从职业规范学到衣物洗涤</small></span><ArrowRight aria-hidden="true" size={19} /></Link>
+          <Link href="/records"><span className="academy-icon tone-peach"><BookOpenCheck aria-hidden="true" size={23} /></span><span className="academy-shortcut-copy"><strong>我的学习</strong><small>继续学习或回看已完成内容</small></span><ArrowRight aria-hidden="true" size={19} /></Link>
         </div>
       </section>
 
