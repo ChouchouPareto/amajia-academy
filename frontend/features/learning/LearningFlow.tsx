@@ -112,7 +112,7 @@ export function LearningFlow({ sessionId }: { sessionId: string }) {
 
   return (
     <main id="main-content" className="flow-shell">
-      <header className="flow-topbar"><Link className="back-link" href={view === "confirm" ? `/ask?example=${encodeURIComponent(questionRequest?.original_text ?? "")}` : "/"}><ArrowLeft aria-hidden="true" size={20} />{view === "confirm" ? "修改问题" : "返回首页"}</Link><span className="prototype-badge"><Sparkles aria-hidden="true" size={15} />后端联调</span></header>
+      <header className="flow-topbar"><Link className="back-link" href={view === "confirm" ? `/ask?example=${encodeURIComponent(questionRequest?.original_text ?? "")}` : "/housekeeping"}><ArrowLeft aria-hidden="true" size={20} />{view === "confirm" ? "修改问题" : "返回学习路径"}</Link><span className="prototype-badge"><Sparkles aria-hidden="true" size={15} />家政入门</span></header>
       {view === "confirm" && questionRequest && <ConfirmView understood={questionRequest.understood_text} onConfirm={startProcessing} />}
       {view === "processing" && <ProcessingView step={processingStep} />}
       {view === "conclusion" && lesson && <ConclusionView lesson={lesson} onContinue={() => setView("step")} />}
@@ -122,7 +122,7 @@ export function LearningFlow({ sessionId }: { sessionId: string }) {
       {view === "blocked" && questionRequest && <BlockedView result={questionRequest} />}
       {view === "no_match" && questionRequest && <NoMatchView result={questionRequest} />}
       {view === "failed" && <FailedView message={error} />}
-      <footer className="prototype-note">学习进度由后端保存 · 当前仍为未审核演示内容</footer>
+      <footer className="prototype-note">学习进度由后端保存 · 当前为待专业审核的内部测试候选内容</footer>
     </main>
   );
 }
@@ -136,7 +136,7 @@ function ProcessingView({ step }: { step: number }) {
 }
 
 function ConclusionView({ lesson, onContinue }: { lesson: Lesson; onContinue: () => void }) {
-  return <section className="flow-card"><div className="content-status"><FileCheck2 aria-hidden="true" size={18} /><strong>内部演示内容</strong><span>尚未专业审核</span></div><p className="section-kicker">先记住这一句</p><h1 className="conclusion-title">{lesson.conclusion}</h1><div className="condition-box"><CircleHelp aria-hidden="true" size={21} /><div><strong>适用范围</strong><p>{lesson.domain === "parenting" ? "适用于一般家庭习惯学习，不替代专业评估。" : "适用于普通家庭的日常生活场景。"}</p></div></div><div className="safety-note"><ShieldCheck aria-hidden="true" size={21} /><div><strong>安全提醒</strong><p>{lesson.disclaimer}</p></div></div><button className="rainbow-button" onClick={onContinue}><span>开始一步一步学</span><ArrowRight aria-hidden="true" size={22} /></button></section>;
+  return <section className="flow-card"><div className="content-status"><FileCheck2 aria-hidden="true" size={18} /><strong>内部测试候选内容</strong><span>待专业审核</span></div><p className="section-kicker">先记住这一句</p><h1 className="conclusion-title">{lesson.conclusion}</h1><div className="condition-box"><CircleHelp aria-hidden="true" size={21} /><div><strong>适用范围</strong><p>适用于普通家庭的家政入门知识学习，不等同于线下实操培训。</p></div></div><div className="safety-note"><ShieldCheck aria-hidden="true" size={21} /><div><strong>安全提醒</strong><p>{lesson.disclaimer}</p></div></div><button className="rainbow-button" onClick={onContinue}><span>开始一步一步学</span><ArrowRight aria-hidden="true" size={22} /></button></section>;
 }
 
 function StepView({ lesson, currentStep, progress, saving, feedback, onNext }: { lesson: Lesson; currentStep: number; progress: number; saving: boolean; feedback: string; onNext: () => void }) {
@@ -149,7 +149,7 @@ function QuizView({ lesson, answer, feedback, saving, onAnswer, onSubmit }: { le
 }
 
 function CompleteView({ lesson }: { lesson: Lesson }) {
-  return <section className="flow-card complete-card"><div className="complete-mark"><Check aria-hidden="true" size={38} strokeWidth={2.5} /></div><p className="section-kicker">学习记录已保存</p><h1>这节已完成</h1><p>你完成了{lesson.steps.length}个步骤和1道理解检查。这里不代表专业技能认证。</p><Link className="rainbow-button" href="/records"><span>查看我学过的</span><ArrowRight aria-hidden="true" size={22} /></Link><Link className="secondary-action" href="/">回到首页</Link></section>;
+  return <section className="flow-card complete-card"><div className="complete-mark"><Check aria-hidden="true" size={38} strokeWidth={2.5} /></div><p className="section-kicker">学习记录已保存</p><h1>这节已完成</h1><p>你完成了{lesson.steps.length}个步骤和1道理解检查。这里不代表专业技能认证。</p><Link className="rainbow-button" href="/housekeeping"><span>继续下一门课</span><ArrowRight aria-hidden="true" size={22} /></Link><Link className="secondary-action" href="/records">查看我学过的</Link></section>;
 }
 
 function BlockedView({ result }: { result: QuestionRequest }) {

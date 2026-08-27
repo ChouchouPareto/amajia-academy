@@ -1,4 +1,4 @@
-import type { LearningSession, QuestionRequest, QuizResult, User } from "@/lib/types";
+import type { AssessmentAttempt, AssessmentResult, CourseCard, LearningOverview, LearningReport, LearningSession, QuestionRequest, QuizResult, User } from "@/lib/types";
 
 type ErrorPayload = {
   error?: {
@@ -10,7 +10,7 @@ type ErrorPayload = {
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "/backend";
-const TEST_USER_KEY = "4060_test_user";
+const TEST_USER_KEY = "amajia_v040_test_user";
 
 export class AppError extends Error {
   constructor(
@@ -82,4 +82,46 @@ export function submitQuiz(id: number, answer: string) {
 export async function getLearningRecords() {
   const user = await getOrCreateTestUser();
   return api<LearningSession[]>(`/api/v1/learning/users/${user.id}/records`);
+}
+
+export async function getHousekeepingCourses() {
+  const user = await getOrCreateTestUser();
+  return api<CourseCard[]>(`/api/v1/housekeeping/courses?user_id=${user.id}`);
+}
+
+export async function startHousekeepingCourse(courseId: string) {
+  const user = await getOrCreateTestUser();
+  return api<LearningSession>(`/api/v1/housekeeping/courses/${courseId}/start`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: user.id }),
+  });
+}
+
+export async function getLearningOverview() {
+  const user = await getOrCreateTestUser();
+  return api<LearningOverview>(`/api/v1/learning/overview?user_id=${user.id}`);
+}
+
+export async function startAssessment(kind: "pre" | "post", idempotencyKey: string) {
+  const user = await getOrCreateTestUser();
+  return api<AssessmentAttempt>(`/api/v1/assessments/${kind}/start`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: user.id, idempotency_key: idempotencyKey }),
+  });
+}
+
+export function saveAssessmentAnswer(attemptId: number, questionId: string, selectedAnswer: string) {
+  return api<AssessmentAttempt>(`/api/v1/assessments/attempts/${attemptId}/answers/${questionId}`, {
+    method: "PUT",
+    body: JSON.stringify({ selected_answer: selectedAnswer }),
+  });
+}
+
+export function submitAssessment(attemptId: number) {
+  return api<AssessmentResult>(`/api/v1/assessments/attempts/${attemptId}/submit`, { method: "POST" });
+}
+
+export async function getLearningReport() {
+  const user = await getOrCreateTestUser();
+  return api<LearningReport>(`/api/v1/learning/report?user_id=${user.id}`);
 }

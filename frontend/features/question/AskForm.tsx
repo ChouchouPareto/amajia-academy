@@ -7,7 +7,7 @@ import { FormEvent, useRef, useState } from "react";
 
 import { AppError, createQuestion } from "@/lib/api";
 
-const examples = ["厨房油污，应该先擦哪里？", "孩子睡前总拖延，怎么安排顺序？", "家里东西太多，应该从哪里开始收？"];
+const examples = ["厨房油污，应该先擦哪里？", "清洁剂为什么不能随便混用？", "洗衣前应该先检查什么？"];
 
 export function AskForm({ initialQuestion }: { initialQuestion: string }) {
   const router = useRouter();
@@ -48,13 +48,13 @@ export function AskForm({ initialQuestion }: { initialQuestion: string }) {
     <main id="main-content" className="flow-shell">
       <header className="flow-topbar">
         <Link className="back-link" href="/"><ArrowLeft aria-hidden="true" size={20} />返回首页</Link>
-        <span className="soft-chip soft-chip--mint">文字提问</span>
+        <span className="soft-chip soft-chip--mint">家政问题</span>
       </header>
 
       <section className="flow-intro">
         <p className="section-kicker">先说一件具体的事</p>
         <h1>你想学什么？</h1>
-        <p>像平时说话一样写下来就可以，不用想专业词。</p>
+        <p>像平时说话一样写下家政问题就可以，不用想专业词。</p>
       </section>
 
       {error && <div ref={errorRef} className="form-error" role="alert" tabIndex={-1}><strong>这个问题还不能提交</strong><span>{error}</span></div>}

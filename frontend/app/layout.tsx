@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "4060AI学习助手｜把问题变成简单学习步骤",
-  description: "面向互联网学习能力较弱人群的受控AI学习助手前端演示",
+  title: "阿嬷学院｜从家政入门，学会一门新本事",
+  description: "面向40至60岁女性的家政入门学习内测产品",
 };
 
 export const viewport: Viewport = {

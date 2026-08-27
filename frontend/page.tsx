@@ -7,7 +7,7 @@ import SoftAurora from "@/components/SoftAurora";
 
 const questions = [
   { category: "家政清洁", tone: "mint", title: "厨房油污，应该先擦哪里？", time: "3分钟" },
-  { category: "育儿照护", tone: "peach", title: "孩子睡前总拖延，怎么安排顺序？", time: "4分钟" },
+  { category: "安全清洁", tone: "peach", title: "卫生间清洁，怎样避免滑倒？", time: "4分钟" },
   { category: "家庭整理", tone: "sky", title: "家里东西太多，应该从哪里开始收？", time: "3分钟" },
 ];
 
@@ -35,7 +35,7 @@ export default function HomePage() {
 
       <section className="home-hero" aria-labelledby="home-title">
         <div className="home-hero__copy">
-          <p className="home-eyebrow"><Sparkles aria-hidden="true" size={16} />家政 · 育儿 · 家庭学习</p>
+          <p className="home-eyebrow"><Sparkles aria-hidden="true" size={16} />阿嬷学院 · 家政入门学习</p>
           <h1 id="home-title" className="home-display-title">
             生活里的难题，<br />也能<span className="rainbow-word">一步一步</span>学会。
           </h1>
@@ -54,12 +54,12 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="home-visual" aria-label="家政、家庭整理和育儿学习场景">
+        <div className="home-visual" aria-label="家政清洁与家庭整理学习场景">
           <div className="collage-frame">
             <Image
               className="home-collage"
               src="/images/home-learning-collage-v2.png"
-              alt="一位中年女性在厨房记录清洁步骤、整理衣物和学习育儿知识的生活场景拼贴"
+              alt="一位中年女性在厨房记录清洁步骤和整理衣物的家政学习场景拼贴"
               width={1536}
               height={1024}
               priority

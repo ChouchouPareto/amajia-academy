@@ -90,3 +90,88 @@ class ErrorDetail(BaseModel):
 
 class ErrorResponse(BaseModel):
     error: ErrorDetail
+
+
+class CourseVersionOut(BaseModel):
+    id: int
+    version: int
+    objectives: list[str]
+    source_refs: list[dict[str, str]]
+    review_status: str
+    reviewer: str | None
+    reviewed_at: datetime | None
+
+
+class CourseCardOut(BaseModel):
+    id: str
+    code: str
+    title: str
+    summary: str
+    estimated_minutes: int
+    risk_level: str
+    content_status: str
+    progress_status: str
+    progress_percent: int
+    version: CourseVersionOut
+
+
+class LearningOverviewOut(BaseModel):
+    housekeeping_status: str
+    pre_assessment_status: str
+    completed_core_courses: int
+    total_core_courses: int
+    recommended_action: str
+    recommended_course_id: str | None
+    post_assessment_status: str
+    report_status: str
+
+
+class AssessmentStartIn(BaseModel):
+    user_id: int
+    idempotency_key: str = Field(min_length=8, max_length=80)
+
+
+class AssessmentQuestionOut(BaseModel):
+    id: str
+    knowledge_point: str
+    prompt: str
+    options: list[dict[str, str]]
+    is_safety_critical: bool
+
+
+class AssessmentAttemptOut(BaseModel):
+    id: int
+    kind: str
+    status: str
+    assessment_version: str
+    answers: dict[str, str]
+    questions: list[AssessmentQuestionOut]
+    score: int | None
+
+
+class AssessmentAnswerIn(BaseModel):
+    selected_answer: str = Field(min_length=1, max_length=20)
+
+
+class AssessmentSubmitOut(BaseModel):
+    attempt_id: int
+    kind: str
+    status: str
+    score: int
+    correct_count: int
+    question_count: int
+    knowledge_point_results: dict[str, bool]
+    is_official: bool
+
+
+class LearningReportOut(BaseModel):
+    report_status: str
+    pre_score: int | None = None
+    post_score: int | None = None
+    improvement_points: int | None = None
+    relative_improvement: float | None = None
+    mastered_knowledge_points: list[str] = Field(default_factory=list)
+    review_knowledge_points: list[str] = Field(default_factory=list)
+    completed_core_courses: int = 0
+    calculation_version: str = "v1"
+    missing: list[str] = Field(default_factory=list)
