@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, BookOpenCheck, ChartNoAxesColumnIncreasing, CheckCircle2, Clock3, GraduationCap, House, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowRight, Award, BookOpenCheck, CheckCircle2, GraduationCap, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -8,6 +8,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { AppError, getLearningOverview } from "@/lib/api";
 import type { LearningOverview } from "@/lib/types";
 import { HomeAiButton } from "@/features/question/HomeAiButton";
+import { HomeControls } from "@/features/home/HomeControls";
 
 const actions = {
   start_pre_assessment: { href: "/assessment/pre", eyebrow: "先了解现在的基础", title: "开始家政入门测一测", copy: "6道小题，不计考试，只用来推荐学习顺序。", button: "开始测一测" },
@@ -34,15 +35,13 @@ export function HomeDashboard() {
   return (
     <main id="main-content" className="home-shell academy-home">
       <AppHeader current="home" />
+      <HomeControls />
       <section className="academy-welcome">
         <span className="academy-badge"><GraduationCap aria-hidden="true" size={18} />家政入门内测版</span>
-        <p>你好，欢迎来到</p>
-        <h1>阿嬷学院</h1>
-        <h2>从家政入门，学会一门新本事。</h2>
-        <p className="academy-lead">不用怕看不懂。我们把家政基础知识拆成小步骤，每次只学一件事。</p>
+        <div><div><p>你好，欢迎来到</p><h1>阿嬷学院</h1></div><p className="academy-lead">从家政入门，<br />一步一步学到上岗准备。</p></div>
       </section>
 
-      <section className="academy-primary-card" aria-busy={!overview && !error}>
+      <section className="academy-primary-card academy-learning-summary" aria-busy={!overview && !error}>
         {error ? (
           <div className="academy-state"><strong>进度暂时加载不出来</strong><p>{error}</p><button type="button" onClick={() => window.location.reload()}>再试一次</button></div>
         ) : !overview ? (
@@ -53,31 +52,24 @@ export function HomeDashboard() {
             <h2>{action.title}</h2>
             <p>{action.copy}</p>
             <Link className="academy-main-action specular-action" href={action.href}><span>{action.button}</span><ArrowRight aria-hidden="true" size={22} /></Link>
+            <div className="academy-inline-progress"><div><span>家政入门进度</span><strong>{overview.completed_core_courses}/{overview.total_core_courses} 门</strong></div><div className="academy-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span style={{ width: `${percent}%` }} /></div></div>
           </>
         )}
       </section>
 
-      <section className="academy-progress-card" aria-label="家政学习进度">
-        <div><span className="academy-icon tone-mint"><ChartNoAxesColumnIncreasing aria-hidden="true" size={23} /></span><div><small>家政入门进度</small><strong>{overview ? `已完成 ${overview.completed_core_courses}/${overview.total_core_courses} 门` : "正在加载"}</strong></div><span>{percent}%</span></div>
-        <div className="academy-progress-track"><span style={{ width: `${percent}%` }} /></div>
-        <Link href="/housekeeping">查看完整学习路径<ArrowRight aria-hidden="true" size={18} /></Link>
-      </section>
-
       <section className="academy-shortcuts" aria-labelledby="shortcut-title">
-        <div className="mobile-section-title"><div><span>清楚知道下一步</span><h2 id="shortcut-title">家政入门学习</h2></div></div>
+        <div className="mobile-section-title"><div><span>常用入口</span><h2 id="shortcut-title">学习与上岗</h2></div></div>
         <div>
-          <Link href="/housekeeping"><span className="academy-icon tone-sky"><House aria-hidden="true" size={23} /></span><span className="academy-shortcut-copy"><strong>六门基础课</strong><small>从职业规范学到衣物洗涤</small></span><ArrowRight aria-hidden="true" size={19} /></Link>
-          <Link href="/records"><span className="academy-icon tone-peach"><BookOpenCheck aria-hidden="true" size={23} /></span><span className="academy-shortcut-copy"><strong>我的学习</strong><small>继续学习或回看已完成内容</small></span><ArrowRight aria-hidden="true" size={19} /></Link>
+          <Link href="/housekeeping"><span className="academy-icon tone-sky"><BookOpenCheck aria-hidden="true" size={23} /></span><span className="academy-shortcut-copy"><strong>六门家政基础课</strong><small>查看课程，继续上次学习</small></span><ArrowRight aria-hidden="true" size={19} /></Link>
+          <Link href="/career-path"><span className="academy-icon tone-peach"><Award aria-hidden="true" size={23} /></span><span className="academy-shortcut-copy"><strong>从入门到上岗</strong><small>技能、实操、证书和就业全流程</small></span><ArrowRight aria-hidden="true" size={19} /></Link>
         </div>
       </section>
 
       <div className="academy-trust">
         <span><ShieldCheck aria-hidden="true" size={18} />候选内容明确标识，待专业审核</span>
-        <span><Clock3 aria-hidden="true" size={18} />每节约8～10分钟</span>
         {overview?.report_status === "complete" && <span><CheckCircle2 aria-hidden="true" size={18} />学习提升已经可以查看</span>}
       </div>
       <p className="home-content-note">当前为内部开发测试，线上学习结果不等于职业资格或实操认证</p>
-      <Link className="home-account-link" href="/account"><UserRound aria-hidden="true" size={17} />账号与隐私</Link>
       <HomeAiButton />
     </main>
   );

@@ -19,5 +19,6 @@ export const config = {
     "/report/:path*",
     "/tools/:path*",
     "/account/:path*",
+    "/career-path/:path*",
   ],
 };
