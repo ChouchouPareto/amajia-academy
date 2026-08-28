@@ -13,6 +13,7 @@ export const config = {
     "/",
     "/choose-mode/:path*",
     "/coach/:path*",
+    "/search/:path*",
     "/housekeeping/:path*",
     "/assessment/:path*",
     "/learn/:path*",

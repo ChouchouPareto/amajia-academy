@@ -1,13 +1,12 @@
 "use client";
 
-import { ArrowRight, Award, BookOpenCheck, CheckCircle2, GraduationCap, ShieldCheck } from "lucide-react";
+import { ArrowRight, Award, BookOpenCheck, CheckCircle2, ChevronDown, GraduationCap, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { AppHeader } from "@/components/AppHeader";
 import { AppError, getLearningOverview } from "@/lib/api";
 import type { LearningOverview } from "@/lib/types";
-import { HomeAiButton } from "@/features/question/HomeAiButton";
 import { HomeControls } from "@/features/home/HomeControls";
 
 const actions = {
@@ -36,7 +35,7 @@ export function HomeDashboard() {
     <main id="main-content" className="home-shell academy-home">
       <AppHeader current="home" />
       <section className="academy-welcome">
-        <span className="academy-badge"><GraduationCap aria-hidden="true" size={18} />家政入门内测版</span>
+        <Link className="academy-badge" href="/choose-mode" aria-label="当前为家政入门内测版，点击切换学习版本"><GraduationCap aria-hidden="true" size={18} /><span>家政入门内测版</span><ChevronDown aria-hidden="true" size={16} /></Link>
         <div><div><p>你好，欢迎来到</p><h1>阿嬷学院</h1></div><p className="academy-lead">从家政入门，<br />一步一步学到上岗准备。</p></div>
       </section>
 
@@ -70,7 +69,6 @@ export function HomeDashboard() {
         {overview?.report_status === "complete" && <span><CheckCircle2 aria-hidden="true" size={18} />学习提升已经可以查看</span>}
       </div>
       <p className="home-content-note">当前为内部开发测试，线上学习结果不等于职业资格或实操认证</p>
-      <HomeAiButton />
     </main>
   );
 }
