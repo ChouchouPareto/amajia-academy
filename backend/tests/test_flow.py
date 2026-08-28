@@ -14,6 +14,8 @@ from app.assessments import ASSESSMENT_VERSION, questions_for, score_answers  # 
 from app.assessment_bank_v2 import SOURCE_IDS  # noqa: E402
 from app.models import CourseVersion, QuestionRequest  # noqa: E402
 from app.coach_skills import SKILLS, validate_tool_request  # noqa: E402
+from app.coach_orchestrator import plan_question_answer  # noqa: E402
+from app.coach_tools import TOOLS  # noqa: E402
 from app.prompt_engineering import GROUNDED_HOUSEKEEPING_ANSWER, get_prompt  # noqa: E402
 
 
@@ -51,6 +53,35 @@ def test_prompt_and_skill_engineering_contracts():
         assert "not allowed" in str(exc)
     else:
         raise AssertionError("A read-only answer Skill must not write progress")
+
+
+def test_parent_orchestrator_plans_read_only_grounded_answer():
+    question = QuestionRequest(
+        id=501,
+        user_id=1,
+        idempotency_key="orchestrator-plan",
+        original_text="厨房油污先擦哪里？",
+        understood_text="厨房清洁",
+        status="waiting_confirmation",
+        lesson_id="kitchen-order",
+        risk_level="L0",
+    )
+    plan = plan_question_answer(question)
+    assert plan.skill_key == "answer_housekeeping_question"
+    assert plan.prompt_version == "housekeeping-grounded-v2"
+    assert plan.may_write_progress is False
+    assert [tool.name for tool in plan.tool_calls] == ["retrieve_knowledge"]
+    assert plan.tool_calls[0].access == "read"
+    assert TOOLS["save_learning_progress"].requires_confirmation is True
+
+    question.status = "blocked"
+    question.risk_level = "L3"
+    try:
+        plan_question_answer(question)
+    except ValueError as exc:
+        assert "must not enter" in str(exc)
+    else:
+        raise AssertionError("High-risk questions must not enter the teaching orchestrator")
 
 
 def test_phase1_learning_flow():

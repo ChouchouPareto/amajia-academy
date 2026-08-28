@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from .admin_content import AdminContentError, router as admin_content_router
 from .ai_service import answer_from_published_knowledge, model_configured
+from .coach_orchestrator import plan_question_answer
 from .auth import AuthError, require_current_user, router as auth_router, seed_development_invitations
 from .db import engine, ensure_schema, get_db
 from .assessments import ASSESSMENT_VERSION, public_questions, questions_for, score_answers
@@ -300,6 +301,7 @@ def answer_question(question_id: int, user: User = Depends(require_current_user)
     if question.answer_mode is not None:
         return serialize_question(question)
 
+    plan_question_answer(question)
     version = published_course_version(db, question.lesson_id)
     if version is None:
         question.status = "knowledge_unavailable"

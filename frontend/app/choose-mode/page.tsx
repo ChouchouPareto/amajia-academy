@@ -6,13 +6,13 @@ export default function ChooseModePage() {
     <main id="main-content" className="mode-shell">
       <header className="mode-header">
         <span className="mode-logo"><Bot aria-hidden="true" size={25} /></span>
-        <div><strong>阿嬷学院</strong><span>同一份学习档案，两种学习方式</span></div>
+        <div><strong>阿嬷学院</strong><span>学习记录会自动同步</span></div>
       </header>
 
       <section className="mode-intro">
-        <p className="section-kicker">登录成功</p>
+        <p className="section-kicker">选择学习方式</p>
         <h1>今天想怎么学？</h1>
-        <p>两个版本可以随时切换，课程进度、错题和学习报告会自动同步。</p>
+        <p>自己按课程学，或者让 AI 老师全程陪着学。</p>
       </section>
 
       <section className="mode-options" aria-label="选择学习方式">
@@ -42,4 +42,3 @@ export default function ChooseModePage() {
     </main>
   );
 }
-
