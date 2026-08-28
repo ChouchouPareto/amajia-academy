@@ -28,6 +28,7 @@ export type LearningSession = {
   id: number;
   user_id: number;
   lesson_id: string;
+  course_version_id: number | null;
   lesson: Lesson;
   status: "learning" | "checking" | "completed";
   current_step: number;
@@ -125,4 +126,35 @@ export type LearningReport = {
   completed_core_courses: number;
   calculation_version: string;
   missing: string[];
+};
+
+export type ContentReview = {
+  id: number;
+  review_type: "professional" | "safety" | "editorial";
+  reviewer: string;
+  decision: "approved" | "rejected";
+  comment: string;
+  created_at: string;
+};
+
+export type AdminCourseVersion = {
+  id: number;
+  course_id: string;
+  code: string;
+  version: number;
+  title: string;
+  summary: string;
+  risk_level: string;
+  disclaimer: string;
+  conclusion: string;
+  objectives: string[];
+  source_refs: Array<{ name: string; url: string }>;
+  steps: Array<{ title: string; body: string }>;
+  quiz: Record<string, unknown>;
+  review_status: "draft" | "in_review" | "approved" | "published" | "suspended" | "rejected";
+  reviewer: string | null;
+  reviewed_at: string | null;
+  published_at: string | null;
+  suspended_at: string | null;
+  reviews: ContentReview[];
 };

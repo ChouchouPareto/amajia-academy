@@ -47,6 +47,40 @@ class CourseVersion(Base):
     review_status: Mapped[str] = mapped_column(String(32), default="pending")
     reviewer: Mapped[str | None] = mapped_column(String(120), nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    title: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    summary: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    risk_level: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    disclaimer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    conclusion: Mapped[str | None] = mapped_column(Text, nullable=True)
+    steps: Mapped[list[dict[str, str]]] = mapped_column(JSON, default=list)
+    quiz: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
+    created_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class ContentReview(Base):
+    __tablename__ = "content_reviews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    course_version_id: Mapped[int] = mapped_column(ForeignKey("course_versions.id"), index=True)
+    review_type: Mapped[str] = mapped_column(String(24), index=True)
+    reviewer: Mapped[str] = mapped_column(String(120))
+    decision: Mapped[str] = mapped_column(String(24))
+    comment: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class ContentAuditEvent(Base):
+    __tablename__ = "content_audit_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    course_version_id: Mapped[int] = mapped_column(ForeignKey("course_versions.id"), index=True)
+    action: Mapped[str] = mapped_column(String(40), index=True)
+    actor: Mapped[str] = mapped_column(String(120))
+    idempotency_key: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    details: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
@@ -57,6 +91,7 @@ class LearningSession(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     lesson_id: Mapped[str] = mapped_column(ForeignKey("lessons.id"), index=True)
+    course_version_id: Mapped[int | None] = mapped_column(ForeignKey("course_versions.id"), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(32), default="learning")
     current_step: Mapped[int] = mapped_column(Integer, default=0)
     quiz_attempts: Mapped[int] = mapped_column(Integer, default=0)

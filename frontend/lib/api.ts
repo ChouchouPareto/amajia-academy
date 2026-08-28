@@ -1,6 +1,7 @@
-import type { AssessmentAttempt, AssessmentResult, CourseCard, LearningOverview, LearningReport, LearningSession, QuestionRequest, QuizResult, User } from "@/lib/types";
+import type { AdminCourseVersion, AssessmentAttempt, AssessmentResult, CourseCard, LearningOverview, LearningReport, LearningSession, QuestionRequest, QuizResult, User } from "@/lib/types";
 
 type ErrorPayload = {
+  detail?: string;
   error?: {
     code?: string;
     message?: string;
@@ -40,7 +41,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as ErrorPayload;
     throw new AppError(
-      payload.error?.message ?? "这一步没有完成，请稍后再试。",
+      payload.error?.message ?? payload.detail ?? "这一步没有完成，请稍后再试。",
       payload.error?.code,
       payload.error?.retryable,
       payload.error?.request_id,
@@ -124,4 +125,59 @@ export function submitAssessment(attemptId: number) {
 export async function getLearningReport() {
   const user = await getOrCreateTestUser();
   return api<LearningReport>(`/api/v1/learning/report?user_id=${user.id}`);
+}
+
+function adminHeaders(adminKey: string) { return { "X-Admin-Key": adminKey }; }
+
+export function getAdminCourseVersions(adminKey: string) {
+  return api<AdminCourseVersion[]>("/api/v1/admin/course-versions", { headers: adminHeaders(adminKey) });
+}
+
+export function updateAdminCourseVersion(adminKey: string, version: AdminCourseVersion, sourceRefs: Array<{ name: string; url: string }>, actor: string) {
+  return api<AdminCourseVersion>(`/api/v1/admin/course-versions/${version.id}`, {
+    method: "PUT",
+    headers: adminHeaders(adminKey),
+    body: JSON.stringify({
+      objectives: version.objectives,
+      source_refs: sourceRefs,
+      title: version.title,
+      summary: version.summary,
+      risk_level: version.risk_level,
+      disclaimer: version.disclaimer,
+      conclusion: version.conclusion,
+      steps: version.steps,
+      quiz: version.quiz,
+      actor,
+      idempotency_key: `update-${version.id}-${crypto.randomUUID()}`,
+    }),
+  });
+}
+
+export function runAdminCourseAction(
+  adminKey: string,
+  versionId: number,
+  action: "submit-review" | "publish" | "suspend" | "rollback",
+  actor: string,
+  comment: string,
+) {
+  return api<AdminCourseVersion>(`/api/v1/admin/course-versions/${versionId}/${action}`, {
+    method: "POST",
+    headers: adminHeaders(adminKey),
+    body: JSON.stringify({ actor, comment, idempotency_key: `${action}-${versionId}-${crypto.randomUUID()}` }),
+  });
+}
+
+export function reviewAdminCourseVersion(
+  adminKey: string,
+  versionId: number,
+  reviewType: "professional" | "safety" | "editorial",
+  reviewer: string,
+  decision: "approved" | "rejected",
+  comment: string,
+) {
+  return api<AdminCourseVersion>(`/api/v1/admin/course-versions/${versionId}/approve`, {
+    method: "POST",
+    headers: adminHeaders(adminKey),
+    body: JSON.stringify({ actor: reviewer, reviewer, review_type: reviewType, decision, comment, idempotency_key: `review-${versionId}-${reviewType}-${crypto.randomUUID()}` }),
+  });
 }

@@ -36,6 +36,7 @@ def test_phase1_learning_flow():
             f"/api/v1/lessons/{lesson_id}/start", json={"user_id": user["id"]}
         ).json()
         assert repeated["id"] == started["id"]
+        assert started["course_version_id"] is not None
 
         session_id = started["id"]
         progress = client.post(
@@ -109,7 +110,7 @@ def test_housekeeping_assessment_and_report_flow():
         )
         assert courses.status_code == 200
         assert len(courses.json()) == 6
-        assert all(item["version"]["review_status"] == "pending" for item in courses.json())
+        assert all(item["version"]["review_status"] == "draft" for item in courses.json())
 
         pre = client.post(
             "/api/v1/assessments/pre/start",
@@ -181,6 +182,137 @@ def test_housekeeping_assessment_and_report_flow():
         assert report.status_code == 200
         assert report.json()["report_status"] == "complete"
         assert report.json()["completed_core_courses"] == 6
+
+
+def test_content_review_publish_and_suspend_flow():
+    headers = {"X-Admin-Key": "amajia-local-admin"}
+    with TestClient(app) as client:
+        assert client.get("/api/v1/admin/course-versions").status_code == 401
+        versions = client.get("/api/v1/admin/course-versions", headers=headers)
+        assert versions.status_code == 200
+        cleaner = next(item for item in versions.json() if item["course_id"] == "cleaner-safety")
+
+        blocked = client.post(
+            f"/api/v1/admin/course-versions/{cleaner['id']}/submit-review",
+            headers=headers,
+            json={"actor": "内容管理员", "comment": "提交审核", "idempotency_key": "cleaner-submit-no-source"},
+        )
+        assert blocked.status_code == 409
+
+        update_payload = {
+            "objectives": cleaner["objectives"],
+            "source_refs": [{"name": "内部家政安全规范测试来源", "url": "https://example.org/housekeeping-safety"}],
+            "title": cleaner["title"],
+            "summary": cleaner["summary"],
+            "risk_level": cleaner["risk_level"],
+            "disclaimer": cleaner["disclaimer"],
+            "conclusion": cleaner["conclusion"],
+            "steps": cleaner["steps"],
+            "quiz": cleaner["quiz"],
+            "actor": "内容管理员",
+            "idempotency_key": "cleaner-update-source",
+        }
+        updated = client.put(f"/api/v1/admin/course-versions/{cleaner['id']}", headers=headers, json=update_payload)
+        assert updated.status_code == 200
+        assert len(updated.json()["source_refs"]) == 1
+
+        submitted = client.post(
+            f"/api/v1/admin/course-versions/{cleaner['id']}/submit-review",
+            headers=headers,
+            json={"actor": "内容管理员", "comment": "资料齐全", "idempotency_key": "cleaner-submit-review"},
+        )
+        assert submitted.json()["review_status"] == "in_review"
+
+        professional = client.post(
+            f"/api/v1/admin/course-versions/{cleaner['id']}/approve",
+            headers=headers,
+            json={"actor": "审核管理员", "reviewer": "家政专业审核员", "review_type": "professional", "decision": "approved", "comment": "专业内容通过", "idempotency_key": "cleaner-professional-review"},
+        )
+        assert professional.status_code == 200
+        assert professional.json()["review_status"] == "in_review"
+
+        safety = client.post(
+            f"/api/v1/admin/course-versions/{cleaner['id']}/approve",
+            headers=headers,
+            json={"actor": "审核管理员", "reviewer": "安全审核员", "review_type": "safety", "decision": "approved", "comment": "安全边界通过", "idempotency_key": "cleaner-safety-review"},
+        )
+        assert safety.status_code == 200
+        assert safety.json()["review_status"] == "approved"
+
+        published = client.post(
+            f"/api/v1/admin/course-versions/{cleaner['id']}/publish",
+            headers=headers,
+            json={"actor": "发布管理员", "comment": "进入内部测试目录", "idempotency_key": "cleaner-publish"},
+        )
+        assert published.status_code == 200
+        assert published.json()["review_status"] == "published"
+
+        repeated = client.post(
+            f"/api/v1/admin/course-versions/{cleaner['id']}/publish",
+            headers=headers,
+            json={"actor": "发布管理员", "comment": "重复请求", "idempotency_key": "cleaner-publish"},
+        )
+        assert repeated.status_code == 200
+        assert repeated.json()["review_status"] == "published"
+
+        suspended = client.post(
+            f"/api/v1/admin/course-versions/{cleaner['id']}/suspend",
+            headers=headers,
+            json={"actor": "发布管理员", "comment": "演练紧急下架", "idempotency_key": "cleaner-suspend"},
+        )
+        assert suspended.status_code == 200
+        assert suspended.json()["review_status"] == "suspended"
+
+
+def test_new_draft_does_not_leak_into_learning_catalog():
+    headers = {"X-Admin-Key": "amajia-local-admin"}
+    with TestClient(app) as client:
+        user = client.post("/api/v1/auth/test-login").json()
+        before = client.get(
+            "/api/v1/housekeeping/courses", params={"user_id": user["id"]}
+        ).json()
+        current = next(item for item in before if item["id"] == "housekeeping-work-basics")
+        version = next(
+            item
+            for item in client.get(
+                "/api/v1/admin/course-versions", headers=headers
+            ).json()
+            if item["course_id"] == "housekeeping-work-basics"
+        )
+        payload = {
+            "objectives": version["objectives"],
+            "source_refs": [
+                {
+                    "name": "内部课程候选来源",
+                    "url": "https://example.org/housekeeping-work-basics",
+                }
+            ],
+            "title": "尚未发布的新标题",
+            "summary": "这段内容只应出现在审核后台。",
+            "risk_level": version["risk_level"],
+            "disclaimer": version["disclaimer"],
+            "conclusion": version["conclusion"],
+            "steps": version["steps"],
+            "quiz": version["quiz"],
+            "actor": "内容管理员",
+            "idempotency_key": "create-hidden-draft-v2",
+        }
+        created = client.post(
+            "/api/v1/admin/courses/housekeeping-work-basics/versions",
+            headers=headers,
+            json=payload,
+        )
+        assert created.status_code == 200
+        assert created.json()["version"] == 2
+        assert created.json()["review_status"] == "draft"
+
+        after = client.get(
+            "/api/v1/housekeeping/courses", params={"user_id": user["id"]}
+        ).json()
+        visible = next(item for item in after if item["id"] == "housekeeping-work-basics")
+        assert visible["title"] == current["title"]
+        assert visible["summary"] == current["summary"]
+        assert visible["version"]["version"] == current["version"]["version"] == 1
 
 
 def teardown_module():

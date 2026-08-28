@@ -11,7 +11,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .db import Base, engine, get_db
+from .admin_content import AdminContentError, router as admin_content_router
+from .db import engine, ensure_schema, get_db
 from .assessments import public_questions, questions_for, score_answers
 from .models import AssessmentAttempt, CourseVersion, LearningSession, Lesson, QuestionRequest, User
 from .schemas import (
@@ -54,11 +55,26 @@ def serialize_session(db: Session, session: LearningSession) -> SessionOut:
     lesson = db.get(Lesson, session.lesson_id)
     if lesson is None:
         raise RuntimeError("Session references a missing lesson")
+    version = db.get(CourseVersion, session.course_version_id) if session.course_version_id else None
+    lesson_out = LessonOut.model_validate(lesson)
+    if version and all((version.title, version.risk_level, version.disclaimer, version.conclusion, version.steps, version.quiz)):
+        lesson_out = LessonOut(
+            id=lesson.id,
+            title=version.title,
+            domain=lesson.domain,
+            risk_level=version.risk_level,
+            disclaimer=version.disclaimer,
+            conclusion=version.conclusion,
+            steps=version.steps,
+            quiz=version.quiz,
+            content_status=version.review_status,
+        )
     return SessionOut(
         id=session.id,
         user_id=session.user_id,
         lesson_id=session.lesson_id,
-        lesson=LessonOut.model_validate(lesson),
+        course_version_id=session.course_version_id,
+        lesson=lesson_out,
         status=session.status,
         current_step=session.current_step,
         quiz_attempts=session.quiz_attempts,
@@ -69,13 +85,14 @@ def serialize_session(db: Session, session: LearningSession) -> SessionOut:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     os.makedirs("data", exist_ok=True)
-    Base.metadata.create_all(bind=engine)
+    ensure_schema()
     with Session(engine) as db:
         seed_lessons(db)
     yield
 
 
 app = FastAPI(title="阿嬷学院 API", version="0.4.0", lifespan=lifespan)
+app.include_router(admin_content_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -113,7 +130,13 @@ def test_login(db: Session = Depends(get_db)):
 
 @app.get("/api/v1/lessons", response_model=list[LessonOut])
 def list_lessons(db: Session = Depends(get_db)):
-    return list(db.scalars(select(Lesson).where(Lesson.content_status == "internal_test_candidate")))
+    return list(
+        db.scalars(
+            select(Lesson).where(
+                Lesson.content_status.in_(("internal_test_candidate", "published"))
+            )
+        )
+    )
 
 
 def serialize_question(question: QuestionRequest) -> QuestionOut:
@@ -145,6 +168,19 @@ def resolve_lesson_id(text: str) -> str | None:
     if any(term in normalized for term in ("洗衣", "衣物", "洗标")):
         return "laundry-basics"
     return None
+
+
+def active_course_version(db: Session, course_id: str) -> CourseVersion | None:
+    published = db.scalar(select(CourseVersion).where(CourseVersion.course_id == course_id, CourseVersion.review_status == "published").order_by(CourseVersion.version.desc()))
+    if published is not None:
+        return published
+    # The seeded v1 candidate remains available during the current internal-test
+    # transition. New draft versions must never replace it before publication.
+    return db.scalar(
+        select(CourseVersion)
+        .where(CourseVersion.course_id == course_id)
+        .order_by(CourseVersion.version.asc())
+    )
 
 
 @app.post("/api/v1/questions", response_model=QuestionOut)
@@ -224,7 +260,8 @@ def confirm_question(question_id: int, db: Session = Depends(get_db)):
         )
     )
     if session is None:
-        session = LearningSession(user_id=question.user_id, lesson_id=question.lesson_id)
+        version = active_course_version(db, question.lesson_id)
+        session = LearningSession(user_id=question.user_id, lesson_id=question.lesson_id, course_version_id=version.id if version else None)
         db.add(session)
     question.status = "confirmed"
     db.commit()
@@ -245,7 +282,8 @@ def start_lesson(lesson_id: str, payload: StartLessonIn, db: Session = Depends(g
         )
     )
     if session is None:
-        session = LearningSession(user_id=payload.user_id, lesson_id=lesson_id)
+        version = active_course_version(db, lesson_id)
+        session = LearningSession(user_id=payload.user_id, lesson_id=lesson_id, course_version_id=version.id if version else None)
         db.add(session)
         db.commit()
         db.refresh(session)
@@ -274,7 +312,9 @@ def save_progress(session_id: int, payload: ProgressIn, db: Session = Depends(ge
     if session is None:
         return error_response(404, "SESSION_NOT_FOUND", "没有找到学习记录")
     lesson = db.get(Lesson, session.lesson_id)
-    if lesson is None or payload.current_step >= len(lesson.steps):
+    version = db.get(CourseVersion, session.course_version_id) if session.course_version_id else None
+    steps = version.steps if version and version.steps else lesson.steps if lesson else []
+    if lesson is None or payload.current_step >= len(steps):
         return error_response(422, "INVALID_STEP", "这个学习步骤不存在")
     if session.status == "completed":
         return serialize_session(db, session)
@@ -293,16 +333,19 @@ def submit_quiz(session_id: int, payload: QuizIn, db: Session = Depends(get_db))
     lesson = db.get(Lesson, session.lesson_id)
     if lesson is None:
         return error_response(404, "LESSON_NOT_FOUND", "没有找到这节内容")
+    version = db.get(CourseVersion, session.course_version_id) if session.course_version_id else None
+    quiz = version.quiz if version and version.quiz else lesson.quiz
+    steps = version.steps if version and version.steps else lesson.steps
     session.quiz_attempts += 1
-    correct = payload.answer == lesson.quiz["correct_answer"]
+    correct = payload.answer == quiz["correct_answer"]
     if correct:
         session.status = "completed"
-        session.current_step = len(lesson.steps) - 1
+        session.current_step = len(steps) - 1
         session.completed_at = datetime.now(timezone.utc)
         message = "回答正确，这节课程已完成。"
     else:
         session.status = "checking"
-        message = str(lesson.quiz.get("explanation", "这道题容易混淆，请回看关键步骤再试一次。"))
+        message = str(quiz.get("explanation", "这道题容易混淆，请回看关键步骤再试一次。"))
     db.commit()
     db.refresh(session)
     return QuizResult(correct=correct, message=message, session=serialize_session(db, session))
@@ -316,25 +359,6 @@ def learning_records(user_id: int, db: Session = Depends(get_db)):
         .order_by(LearningSession.updated_at.desc())
     )
     return [serialize_session(db, session) for session in sessions]
-
-
-def course_version_out(db: Session, course_id: str) -> CourseVersionOut:
-    version = db.scalar(
-        select(CourseVersion)
-        .where(CourseVersion.course_id == course_id)
-        .order_by(CourseVersion.version.desc())
-    )
-    if version is None:
-        raise RuntimeError("Course references a missing version")
-    return CourseVersionOut(
-        id=version.id,
-        version=version.version,
-        objectives=version.objectives,
-        source_refs=version.source_refs,
-        review_status=version.review_status,
-        reviewer=version.reviewer,
-        reviewed_at=version.reviewed_at,
-    )
 
 
 @app.get("/api/v1/housekeeping/courses", response_model=list[CourseCardOut])
@@ -352,6 +376,9 @@ def housekeeping_courses(user_id: int, db: Session = Depends(get_db)):
     )
     cards: list[CourseCardOut] = []
     for course in sorted(courses, key=lambda item: COURSE_META.get(item.id, {}).get("code", item.id)):
+        active_version = active_course_version(db, course.id)
+        if active_version is None:
+            continue
         session = db.scalar(
             select(LearningSession).where(
                 LearningSession.user_id == user_id,
@@ -366,13 +393,21 @@ def housekeeping_courses(user_id: int, db: Session = Depends(get_db)):
                 id=course.id,
                 code=str(meta["code"]),
                 title=course.title,
-                summary=str(meta["summary"]),
+                summary=active_version.summary or str(meta["summary"]),
                 estimated_minutes=int(meta["minutes"]),
                 risk_level=course.risk_level,
                 content_status=course.content_status,
                 progress_status="not_started" if session is None else session.status,
                 progress_percent=progress,
-                version=course_version_out(db, course.id),
+                version=CourseVersionOut(
+                    id=active_version.id,
+                    version=active_version.version,
+                    objectives=active_version.objectives,
+                    source_refs=active_version.source_refs,
+                    review_status=active_version.review_status,
+                    reviewer=active_version.reviewer,
+                    reviewed_at=active_version.reviewed_at,
+                ),
             )
         )
     return cards
@@ -587,3 +622,8 @@ def learning_report(user_id: int, db: Session = Depends(get_db)):
 @app.exception_handler(Exception)
 async def unhandled_exception(_: Request, __: Exception):
     return error_response(500, "INTERNAL_ERROR", "系统暂时没有完成，请稍后再试", True)
+
+
+@app.exception_handler(AdminContentError)
+async def admin_content_exception(_: Request, error: AdminContentError):
+    return error_response(error.status_code, error.code, error.message)

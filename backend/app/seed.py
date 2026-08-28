@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import CourseVersion, Lesson
+from .models import CourseVersion, LearningSession, Lesson
 
 
 COURSE_META = {
@@ -102,8 +102,22 @@ def seed_lessons(db: Session) -> None:
                 setattr(lesson, key, value)
         version = db.scalar(select(CourseVersion).where(CourseVersion.course_id == payload["id"], CourseVersion.version == 1))
         if version is None:
-            db.add(CourseVersion(course_id=payload["id"], version=1, objectives=[payload["conclusion"]], source_refs=[], review_status="pending"))
+            version = CourseVersion(course_id=payload["id"], version=1, objectives=[payload["conclusion"]], source_refs=[], review_status="pending")
+            db.add(version)
+        version.title = version.title or payload["title"]
+        version.summary = version.summary or COURSE_META[payload["id"]]["summary"]
+        version.risk_level = version.risk_level or payload["risk_level"]
+        version.disclaimer = version.disclaimer or payload["disclaimer"]
+        version.conclusion = version.conclusion or payload["conclusion"]
+        version.steps = version.steps or payload["steps"]
+        version.quiz = version.quiz or payload["quiz"]
+        if version.review_status == "pending":
+            version.review_status = "draft"
     legacy = db.get(Lesson, "bedtime-order")
     if legacy is not None:
         legacy.content_status = "archived_demo"
+    for session in db.scalars(select(LearningSession).where(LearningSession.course_version_id.is_(None))):
+        version = db.scalar(select(CourseVersion).where(CourseVersion.course_id == session.lesson_id).order_by(CourseVersion.version.desc()))
+        if version is not None:
+            session.course_version_id = version.id
     db.commit()

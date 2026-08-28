@@ -68,6 +68,7 @@ class SessionOut(BaseModel):
     id: int
     user_id: int
     lesson_id: str
+    course_version_id: int | None
     lesson: LessonOut
     status: str
     current_step: int
@@ -100,6 +101,74 @@ class CourseVersionOut(BaseModel):
     review_status: str
     reviewer: str | None
     reviewed_at: datetime | None
+
+
+class SourceRefIn(BaseModel):
+    name: str = Field(min_length=2, max_length=160)
+    url: str = Field(min_length=8, max_length=500)
+
+
+class AdminCourseVersionUpdateIn(BaseModel):
+    objectives: list[str] = Field(min_length=1, max_length=12)
+    source_refs: list[SourceRefIn] = Field(min_length=1, max_length=20)
+    title: str = Field(min_length=2, max_length=180)
+    summary: str = Field(min_length=4, max_length=300)
+    risk_level: str = Field(pattern=r"^L[0-3]$")
+    disclaimer: str = Field(min_length=8, max_length=500)
+    conclusion: str = Field(min_length=8, max_length=500)
+    steps: list[dict[str, str]] = Field(min_length=1, max_length=10)
+    quiz: dict[str, object]
+    actor: str = Field(min_length=2, max_length=120)
+    idempotency_key: str = Field(min_length=8, max_length=80)
+
+
+class AdminCourseVersionCreateIn(AdminCourseVersionUpdateIn):
+    pass
+
+
+class AdminActionIn(BaseModel):
+    actor: str = Field(min_length=2, max_length=120)
+    comment: str = Field(default="", max_length=1000)
+    idempotency_key: str = Field(min_length=8, max_length=80)
+
+
+class AdminReviewDecisionIn(AdminActionIn):
+    review_type: str = Field(pattern=r"^(professional|safety|editorial)$")
+    reviewer: str = Field(min_length=2, max_length=120)
+    decision: str = Field(pattern=r"^(approved|rejected)$")
+
+
+class ContentReviewOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    review_type: str
+    reviewer: str
+    decision: str
+    comment: str
+    created_at: datetime
+
+
+class AdminCourseVersionOut(BaseModel):
+    id: int
+    course_id: str
+    code: str
+    version: int
+    title: str
+    summary: str
+    risk_level: str
+    disclaimer: str
+    conclusion: str
+    objectives: list[str]
+    source_refs: list[dict[str, str]]
+    steps: list[dict[str, str]]
+    quiz: dict[str, object]
+    review_status: str
+    reviewer: str | None
+    reviewed_at: datetime | None
+    published_at: datetime | None
+    suspended_at: datetime | None
+    reviews: list[ContentReviewOut]
 
 
 class CourseCardOut(BaseModel):
