@@ -11,6 +11,21 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.main import app  # noqa: E402
 
 
+def login_with_invite(client: TestClient, code: str = "INVITE_CODE_REMOVED", name: str = "体验学员"):
+    response = client.post(
+        "/api/v1/auth/invite-login",
+        json={
+            "invitation_code": code,
+            "display_name": name,
+            "consent_accepted": True,
+            "consent_version": "2026-08-28-v1",
+        },
+    )
+    assert response.status_code == 200
+    assert response.cookies.get("amajia_session")
+    return response.json()
+
+
 def test_phase1_learning_flow():
     with TestClient(app) as client:
         health = client.get("/health")
@@ -18,8 +33,9 @@ def test_phase1_learning_flow():
         assert health.json()["mode"] == "internal_test"
         assert health.json()["version"] == "0.4.0"
 
-        user = client.post("/api/v1/auth/test-login").json()
-        repeated_user = client.post("/api/v1/auth/test-login").json()
+        assert client.get("/api/v1/lessons").status_code == 401
+        user = login_with_invite(client)
+        repeated_user = client.get("/api/v1/auth/me").json()
         assert repeated_user["id"] == user["id"]
 
         lessons = client.get("/api/v1/lessons").json()
@@ -69,7 +85,7 @@ def test_phase1_learning_flow():
 
 def test_question_routing_confirmation_and_idempotency():
     with TestClient(app) as client:
-        user = client.post("/api/v1/auth/test-login").json()
+        user = login_with_invite(client)
         payload = {
             "user_id": user["id"],
             "text": "厨房油污应该先擦哪里？",
@@ -104,7 +120,7 @@ def test_question_routing_confirmation_and_idempotency():
 
 def test_housekeeping_assessment_and_report_flow():
     with TestClient(app) as client:
-        user = client.post("/api/v1/auth/test-login").json()
+        user = login_with_invite(client)
         courses = client.get(
             "/api/v1/housekeeping/courses", params={"user_id": user["id"]}
         )
@@ -267,7 +283,7 @@ def test_content_review_publish_and_suspend_flow():
 def test_new_draft_does_not_leak_into_learning_catalog():
     headers = {"X-Admin-Key": "amajia-local-admin"}
     with TestClient(app) as client:
-        user = client.post("/api/v1/auth/test-login").json()
+        user = login_with_invite(client)
         before = client.get(
             "/api/v1/housekeeping/courses", params={"user_id": user["id"]}
         ).json()
@@ -313,6 +329,69 @@ def test_new_draft_does_not_leak_into_learning_catalog():
         assert visible["title"] == current["title"]
         assert visible["summary"] == current["summary"]
         assert visible["version"]["version"] == current["version"]["version"] == 1
+
+
+def test_role_authorization_logout_and_account_deletion():
+    with TestClient(app) as learner_client:
+        learner = login_with_invite(learner_client)
+        forbidden = learner_client.get("/api/v1/admin/course-versions")
+        assert forbidden.status_code == 403
+        assert forbidden.json()["error"]["code"] == "ADMIN_ROLE_REQUIRED"
+
+        with TestClient(app) as admin_client:
+            admin = login_with_invite(
+                admin_client, "INVITE_CODE_REMOVED", "内容管理员"
+            )
+            assert admin["role"] == "content_admin"
+            assert admin_client.get("/api/v1/admin/course-versions").status_code == 200
+            issued = admin_client.post(
+                "/api/v1/admin/invitations",
+                json={"label": "首批试学用户01", "expires_days": 7},
+            )
+            assert issued.status_code == 200
+            assert issued.json()["invitation_code"].startswith("AMAJIA-")
+            assert issued.json()["role"] == "learner"
+            assert len(admin_client.get("/api/v1/admin/invitations").json()) >= 3
+            with TestClient(app) as invited_client:
+                invited = login_with_invite(
+                    invited_client,
+                    issued.json()["invitation_code"],
+                    "新试学用户",
+                )
+                assert invited["role"] == "learner"
+            cross_user = admin_client.get(
+                "/api/v1/learning/overview", params={"user_id": learner["id"]}
+            )
+            assert cross_user.status_code == 403
+
+            logged_out = admin_client.post("/api/v1/auth/logout")
+            assert logged_out.status_code == 204
+            assert admin_client.get("/api/v1/auth/me").status_code == 401
+
+        wrong_confirmation = learner_client.request(
+            "DELETE",
+            "/api/v1/auth/me",
+            json={"confirmation": "确认删除"},
+        )
+        assert wrong_confirmation.status_code == 422
+        deleted = learner_client.request(
+            "DELETE",
+            "/api/v1/auth/me",
+            json={"confirmation": "删除我的学习数据"},
+        )
+        assert deleted.status_code == 200
+        assert deleted.json()["deleted"] is True
+        assert len(deleted.json()["receipt"]) == 24
+        assert learner_client.get("/api/v1/auth/me").status_code == 401
+        assert learner_client.post(
+            "/api/v1/auth/invite-login",
+            json={
+                "invitation_code": "INVITE_CODE_REMOVED",
+                "display_name": "体验学员",
+                "consent_accepted": True,
+                "consent_version": "2026-08-28-v1",
+            },
+        ).status_code == 401
 
 
 def teardown_module():

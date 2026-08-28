@@ -1,6 +1,30 @@
 export type User = {
   id: number;
   display_name: string;
+  role: "learner" | "content_admin" | "super_admin";
+  status: "active" | "disabled";
+  consent_version: string | null;
+  consented_at: string | null;
+};
+
+export type DeleteAccountResult = {
+  deleted: boolean;
+  receipt: string;
+};
+
+export type Invitation = {
+  id: number;
+  label: string;
+  role: "learner";
+  active: boolean;
+  claimed_by_user_id: number | null;
+  expires_at: string | null;
+  claimed_at: string | null;
+  created_at: string;
+};
+
+export type IssuedInvitation = Invitation & {
+  invitation_code: string;
 };
 
 export type QuizOption = {

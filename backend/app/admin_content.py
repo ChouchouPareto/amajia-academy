@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import hmac
 import os
-from datetime import datetime, timezone
+import secrets
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Cookie, Depends, Header
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .auth import hash_secret, session_for_token, utc_now
 from .db import get_db
-from .models import ContentAuditEvent, ContentReview, CourseVersion, Lesson
+from .models import ContentAuditEvent, ContentReview, CourseVersion, Invitation, Lesson, User
 from .schemas import (
     AdminActionIn,
     AdminCourseVersionCreateIn,
@@ -17,6 +19,9 @@ from .schemas import (
     AdminCourseVersionUpdateIn,
     AdminReviewDecisionIn,
     ContentReviewOut,
+    InvitationAdminOut,
+    InvitationCreateIn,
+    InvitationIssuedOut,
 )
 from .seed import COURSE_META
 
@@ -30,14 +35,25 @@ class AdminContentError(Exception):
         self.message = message
 
 
-def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
+def require_admin(
+    x_admin_key: str | None = Header(default=None),
+    amajia_session: str | None = Cookie(default=None),
+    db: Session = Depends(get_db),
+) -> User | None:
+    auth_session = session_for_token(db, amajia_session)
+    session_user = db.get(User, auth_session.user_id) if auth_session else None
+    if session_user and session_user.status == "active" and session_user.role in ("content_admin", "super_admin"):
+        return session_user
     expected = os.getenv("ADMIN_API_KEY")
     if not expected and os.getenv("APP_ENV", "development") != "production":
         expected = "amajia-local-admin"
     if not expected:
         raise AdminContentError(503, "ADMIN_AUTH_NOT_CONFIGURED", "管理员认证尚未配置")
     if not x_admin_key or not hmac.compare_digest(x_admin_key, expected):
-        raise AdminContentError(401, "ADMIN_UNAUTHORIZED", "管理员密钥不正确")
+        if session_user:
+            raise AdminContentError(403, "ADMIN_ROLE_REQUIRED", "当前账号没有课程审核权限")
+        raise AdminContentError(401, "ADMIN_UNAUTHORIZED", "请使用管理员邀请码进入")
+    return None
 
 
 def reviews_for(db: Session, version_id: int) -> list[ContentReview]:
@@ -98,6 +114,36 @@ def apply_snapshot(lesson: Lesson, version: CourseVersion) -> None:
     lesson.steps = version.steps
     lesson.quiz = version.quiz
     lesson.content_status = "published"
+
+
+@router.get("/invitations", response_model=list[InvitationAdminOut], dependencies=[Depends(require_admin)])
+def list_invitations(db: Session = Depends(get_db)):
+    return list(db.scalars(select(Invitation).order_by(Invitation.created_at.desc())))
+
+
+@router.post("/invitations", response_model=InvitationIssuedOut, dependencies=[Depends(require_admin)])
+def create_invitation(payload: InvitationCreateIn, db: Session = Depends(get_db)):
+    raw_code = f"AMAJIA-{secrets.token_hex(4).upper()}"
+    invitation = Invitation(
+        code_hash=hash_secret(raw_code),
+        label=payload.label.strip(),
+        role="learner",
+        expires_at=utc_now() + timedelta(days=payload.expires_days),
+    )
+    db.add(invitation)
+    db.commit()
+    db.refresh(invitation)
+    return InvitationIssuedOut(
+        id=invitation.id,
+        label=invitation.label,
+        role=invitation.role,
+        active=invitation.active,
+        claimed_by_user_id=invitation.claimed_by_user_id,
+        expires_at=invitation.expires_at,
+        claimed_at=invitation.claimed_at,
+        created_at=invitation.created_at,
+        invitation_code=raw_code,
+    )
 
 
 @router.get("/course-versions", response_model=list[AdminCourseVersionOut], dependencies=[Depends(require_admin)])

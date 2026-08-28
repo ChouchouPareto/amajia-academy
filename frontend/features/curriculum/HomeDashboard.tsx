@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, BookOpenCheck, ChartNoAxesColumnIncreasing, CheckCircle2, Clock3, GraduationCap, House, ShieldCheck } from "lucide-react";
+import { ArrowRight, BookOpenCheck, ChartNoAxesColumnIncreasing, CheckCircle2, Clock3, GraduationCap, House, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -76,6 +76,7 @@ export function HomeDashboard() {
         {overview?.report_status === "complete" && <span><CheckCircle2 aria-hidden="true" size={18} />学习提升已经可以查看</span>}
       </div>
       <p className="home-content-note">当前为内部开发测试，线上学习结果不等于职业资格或实操认证</p>
+      <Link className="home-account-link" href="/account"><UserRound aria-hidden="true" size={17} />账号与隐私</Link>
     </main>
   );
 }

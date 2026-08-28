@@ -18,6 +18,45 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     external_key: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     display_name: Mapped[str] = mapped_column(String(80))
+    role: Mapped[str] = mapped_column(String(32), default="learner", index=True)
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    consent_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    consented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class Invitation(Base):
+    __tablename__ = "invitations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    label: Mapped[str] = mapped_column(String(120))
+    role: Mapped[str] = mapped_column(String(32), default="learner")
+    claimed_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class PrivacyAuditEvent(Base):
+    __tablename__ = "privacy_audit_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    event: Mapped[str] = mapped_column(String(40), index=True)
+    anonymous_ref: Mapped[str] = mapped_column(String(64), index=True)
+    consent_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 

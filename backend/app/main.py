@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .admin_content import AdminContentError, router as admin_content_router
+from .auth import AuthError, require_current_user, router as auth_router, seed_development_invitations
 from .db import engine, ensure_schema, get_db
 from .assessments import public_questions, questions_for, score_answers
 from .models import AssessmentAttempt, CourseVersion, LearningSession, Lesson, QuestionRequest, User
@@ -32,7 +33,6 @@ from .schemas import (
     QuizResult,
     SessionOut,
     StartLessonIn,
-    UserOut,
 )
 from .seed import COURSE_META, seed_lessons
 
@@ -88,10 +88,12 @@ async def lifespan(_: FastAPI):
     ensure_schema()
     with Session(engine) as db:
         seed_lessons(db)
+        seed_development_invitations(db)
     yield
 
 
 app = FastAPI(title="阿嬷学院 API", version="0.4.0", lifespan=lifespan)
+app.include_router(auth_router)
 app.include_router(admin_content_router)
 app.add_middleware(
     CORSMiddleware,
@@ -116,20 +118,8 @@ def health():
     return {"status": "ok", "phase": 3, "version": "0.4.0", "mode": "internal_test"}
 
 
-@app.post("/api/v1/auth/test-login", response_model=UserOut)
-def test_login(db: Session = Depends(get_db)):
-    external_key = "amajia-v040-local-test-user"
-    user = db.scalar(select(User).where(User.external_key == external_key))
-    if user is None:
-        user = User(external_key=external_key, display_name="体验学员")
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    return user
-
-
 @app.get("/api/v1/lessons", response_model=list[LessonOut])
-def list_lessons(db: Session = Depends(get_db)):
+def list_lessons(_: User = Depends(require_current_user), db: Session = Depends(get_db)):
     return list(
         db.scalars(
             select(Lesson).where(
@@ -170,6 +160,11 @@ def resolve_lesson_id(text: str) -> str | None:
     return None
 
 
+def ensure_owner(user: User, user_id: int) -> None:
+    if user.id != user_id:
+        raise AuthError(403, "RESOURCE_FORBIDDEN", "不能查看或修改其他测试用户的数据")
+
+
 def active_course_version(db: Session, course_id: str) -> CourseVersion | None:
     published = db.scalar(select(CourseVersion).where(CourseVersion.course_id == course_id, CourseVersion.review_status == "published").order_by(CourseVersion.version.desc()))
     if published is not None:
@@ -184,7 +179,8 @@ def active_course_version(db: Session, course_id: str) -> CourseVersion | None:
 
 
 @app.post("/api/v1/questions", response_model=QuestionOut)
-def create_question(payload: QuestionIn, db: Session = Depends(get_db)):
+def create_question(payload: QuestionIn, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    ensure_owner(user, payload.user_id)
     if db.get(User, payload.user_id) is None:
         return error_response(404, "USER_NOT_FOUND", "没有找到测试用户")
     existing = db.scalar(
@@ -239,18 +235,20 @@ def create_question(payload: QuestionIn, db: Session = Depends(get_db)):
 
 
 @app.get("/api/v1/questions/{question_id}", response_model=QuestionOut)
-def get_question(question_id: int, db: Session = Depends(get_db)):
+def get_question(question_id: int, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
     question = db.get(QuestionRequest, question_id)
     if question is None:
         return error_response(404, "QUESTION_NOT_FOUND", "没有找到这次问题")
+    ensure_owner(user, question.user_id)
     return serialize_question(question)
 
 
 @app.post("/api/v1/questions/{question_id}/confirm", response_model=SessionOut)
-def confirm_question(question_id: int, db: Session = Depends(get_db)):
+def confirm_question(question_id: int, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
     question = db.get(QuestionRequest, question_id)
     if question is None:
         return error_response(404, "QUESTION_NOT_FOUND", "没有找到这次问题")
+    ensure_owner(user, question.user_id)
     if question.lesson_id is None or question.status not in ("waiting_confirmation", "confirmed"):
         return error_response(409, "QUESTION_NOT_CONFIRMABLE", "这个问题不能进入普通学习")
     session = db.scalar(
@@ -270,7 +268,8 @@ def confirm_question(question_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/v1/lessons/{lesson_id}/start", response_model=SessionOut)
-def start_lesson(lesson_id: str, payload: StartLessonIn, db: Session = Depends(get_db)):
+def start_lesson(lesson_id: str, payload: StartLessonIn, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    ensure_owner(user, payload.user_id)
     if db.get(User, payload.user_id) is None:
         return error_response(404, "USER_NOT_FOUND", "没有找到测试用户")
     if db.get(Lesson, lesson_id) is None:
@@ -291,26 +290,28 @@ def start_lesson(lesson_id: str, payload: StartLessonIn, db: Session = Depends(g
 
 
 @app.post("/api/v1/housekeeping/courses/{course_id}/start", response_model=SessionOut)
-def start_housekeeping_course(course_id: str, payload: StartLessonIn, db: Session = Depends(get_db)):
+def start_housekeeping_course(course_id: str, payload: StartLessonIn, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
     course = db.get(Lesson, course_id)
     if course is None or course.domain != "housekeeping" or course.content_status not in ("internal_test_candidate", "published"):
         return error_response(404, "COURSE_NOT_FOUND", "没有找到这门家政课程")
-    return start_lesson(course_id, payload, db)
+    return start_lesson(course_id, payload, user, db)
 
 
 @app.get("/api/v1/learning/sessions/{session_id}", response_model=SessionOut)
-def get_session(session_id: int, db: Session = Depends(get_db)):
+def get_session(session_id: int, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
     session = db.get(LearningSession, session_id)
     if session is None:
         return error_response(404, "SESSION_NOT_FOUND", "没有找到学习记录")
+    ensure_owner(user, session.user_id)
     return serialize_session(db, session)
 
 
 @app.post("/api/v1/learning/sessions/{session_id}/progress", response_model=SessionOut)
-def save_progress(session_id: int, payload: ProgressIn, db: Session = Depends(get_db)):
+def save_progress(session_id: int, payload: ProgressIn, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
     session = db.get(LearningSession, session_id)
     if session is None:
         return error_response(404, "SESSION_NOT_FOUND", "没有找到学习记录")
+    ensure_owner(user, session.user_id)
     lesson = db.get(Lesson, session.lesson_id)
     version = db.get(CourseVersion, session.course_version_id) if session.course_version_id else None
     steps = version.steps if version and version.steps else lesson.steps if lesson else []
@@ -326,10 +327,11 @@ def save_progress(session_id: int, payload: ProgressIn, db: Session = Depends(ge
 
 
 @app.post("/api/v1/learning/sessions/{session_id}/quiz", response_model=QuizResult)
-def submit_quiz(session_id: int, payload: QuizIn, db: Session = Depends(get_db)):
+def submit_quiz(session_id: int, payload: QuizIn, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
     session = db.get(LearningSession, session_id)
     if session is None:
         return error_response(404, "SESSION_NOT_FOUND", "没有找到学习记录")
+    ensure_owner(user, session.user_id)
     lesson = db.get(Lesson, session.lesson_id)
     if lesson is None:
         return error_response(404, "LESSON_NOT_FOUND", "没有找到这节内容")
@@ -352,7 +354,8 @@ def submit_quiz(session_id: int, payload: QuizIn, db: Session = Depends(get_db))
 
 
 @app.get("/api/v1/learning/users/{user_id}/records", response_model=list[SessionOut])
-def learning_records(user_id: int, db: Session = Depends(get_db)):
+def learning_records(user_id: int, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    ensure_owner(user, user_id)
     sessions = db.scalars(
         select(LearningSession)
         .where(LearningSession.user_id == user_id)
@@ -362,7 +365,8 @@ def learning_records(user_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/api/v1/housekeeping/courses", response_model=list[CourseCardOut])
-def housekeeping_courses(user_id: int, db: Session = Depends(get_db)):
+def housekeeping_courses(user_id: int, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    ensure_owner(user, user_id)
     if db.get(User, user_id) is None:
         return error_response(404, "USER_NOT_FOUND", "没有找到测试学员")
     courses = list(
@@ -414,7 +418,8 @@ def housekeeping_courses(user_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/api/v1/learning/overview", response_model=LearningOverviewOut)
-def learning_overview(user_id: int, db: Session = Depends(get_db)):
+def learning_overview(user_id: int, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    ensure_owner(user, user_id)
     if db.get(User, user_id) is None:
         return error_response(404, "USER_NOT_FOUND", "没有找到测试学员")
     sessions = list(
@@ -468,7 +473,8 @@ def learning_overview(user_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/v1/assessments/{kind}/start", response_model=AssessmentAttemptOut)
-def start_assessment(kind: str, payload: AssessmentStartIn, db: Session = Depends(get_db)):
+def start_assessment(kind: str, payload: AssessmentStartIn, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    ensure_owner(user, payload.user_id)
     if kind not in ("pre", "post"):
         return error_response(404, "ASSESSMENT_NOT_FOUND", "没有找到这份测一测")
     if db.get(User, payload.user_id) is None:
@@ -526,11 +532,13 @@ def save_assessment_answer(
     attempt_id: int,
     question_id: str,
     payload: AssessmentAnswerIn,
+    user: User = Depends(require_current_user),
     db: Session = Depends(get_db),
 ):
     attempt = db.get(AssessmentAttempt, attempt_id)
     if attempt is None:
         return error_response(404, "ATTEMPT_NOT_FOUND", "没有找到这次测一测")
+    ensure_owner(user, attempt.user_id)
     if attempt.status != "in_progress":
         return error_response(409, "ATTEMPT_ALREADY_SUBMITTED", "这次测一测已经提交")
     question = next((item for item in questions_for(attempt.kind) if item["id"] == question_id), None)
@@ -553,10 +561,11 @@ def save_assessment_answer(
 
 
 @app.post("/api/v1/assessments/attempts/{attempt_id}/submit", response_model=AssessmentSubmitOut)
-def submit_assessment(attempt_id: int, db: Session = Depends(get_db)):
+def submit_assessment(attempt_id: int, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
     attempt = db.get(AssessmentAttempt, attempt_id)
     if attempt is None:
         return error_response(404, "ATTEMPT_NOT_FOUND", "没有找到这次测一测")
+    ensure_owner(user, attempt.user_id)
     questions = questions_for(attempt.kind)
     if attempt.status == "submitted" and attempt.score is not None:
         score, correct, results = score_answers(attempt.kind, attempt.answers)
@@ -581,7 +590,8 @@ def submit_assessment(attempt_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/api/v1/learning/report", response_model=LearningReportOut)
-def learning_report(user_id: int, db: Session = Depends(get_db)):
+def learning_report(user_id: int, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    ensure_owner(user, user_id)
     attempts = list(
         db.scalars(
             select(AssessmentAttempt).where(
@@ -626,4 +636,9 @@ async def unhandled_exception(_: Request, __: Exception):
 
 @app.exception_handler(AdminContentError)
 async def admin_content_exception(_: Request, error: AdminContentError):
+    return error_response(error.status_code, error.code, error.message)
+
+
+@app.exception_handler(AuthError)
+async def auth_exception(_: Request, error: AuthError):
     return error_response(error.status_code, error.code, error.message)

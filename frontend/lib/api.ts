@@ -1,4 +1,4 @@
-import type { AdminCourseVersion, AssessmentAttempt, AssessmentResult, CourseCard, LearningOverview, LearningReport, LearningSession, QuestionRequest, QuizResult, User } from "@/lib/types";
+import type { AdminCourseVersion, AssessmentAttempt, AssessmentResult, CourseCard, DeleteAccountResult, Invitation, IssuedInvitation, LearningOverview, LearningReport, LearningSession, QuestionRequest, QuizResult, User } from "@/lib/types";
 
 type ErrorPayload = {
   detail?: string;
@@ -11,7 +11,7 @@ type ErrorPayload = {
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "/backend";
-const TEST_USER_KEY = "amajia_v040_test_user";
+export const CURRENT_PRIVACY_VERSION = "2026-08-28-v1";
 
 export class AppError extends Error {
   constructor(
@@ -29,6 +29,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     response = await fetch(`${API_BASE}${path}`, {
       ...init,
+      credentials: "same-origin",
       headers: {
         "Content-Type": "application/json",
         ...init?.headers,
@@ -48,23 +49,42 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     );
   }
 
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
 
-export async function getOrCreateTestUser(): Promise<User> {
-  if (typeof window !== "undefined") {
-    const saved = window.localStorage.getItem(TEST_USER_KEY);
-    if (saved) {
-      try { return JSON.parse(saved) as User; } catch { window.localStorage.removeItem(TEST_USER_KEY); }
-    }
-  }
-  const user = await api<User>("/api/v1/auth/test-login", { method: "POST" });
-  if (typeof window !== "undefined") window.localStorage.setItem(TEST_USER_KEY, JSON.stringify(user));
-  return user;
+export async function getCurrentUser(): Promise<User> {
+  return api<User>("/api/v1/auth/me");
+}
+
+export function loginWithInvite(invitationCode: string, displayName: string) {
+  return api<User>("/api/v1/auth/invite-login", {
+    method: "POST",
+    body: JSON.stringify({ invitation_code: invitationCode, display_name: displayName, consent_accepted: true, consent_version: CURRENT_PRIVACY_VERSION }),
+  });
+}
+
+export function logout() {
+  return api<void>("/api/v1/auth/logout", { method: "POST" });
+}
+
+export function deleteCurrentAccount(confirmation: string) {
+  return api<DeleteAccountResult>("/api/v1/auth/me", { method: "DELETE", body: JSON.stringify({ confirmation }) });
+}
+
+export function getInvitations() {
+  return api<Invitation[]>("/api/v1/admin/invitations");
+}
+
+export function createInvitation(label: string, expiresDays: number) {
+  return api<IssuedInvitation>("/api/v1/admin/invitations", {
+    method: "POST",
+    body: JSON.stringify({ label, expires_days: expiresDays }),
+  });
 }
 
 export async function createQuestion(text: string, idempotencyKey: string): Promise<QuestionRequest> {
-  const user = await getOrCreateTestUser();
+  const user = await getCurrentUser();
   return api<QuestionRequest>("/api/v1/questions", {
     method: "POST",
     body: JSON.stringify({ user_id: user.id, text, idempotency_key: idempotencyKey }),
@@ -81,17 +101,17 @@ export function submitQuiz(id: number, answer: string) {
   return api<QuizResult>(`/api/v1/learning/sessions/${id}/quiz`, { method: "POST", body: JSON.stringify({ answer }) });
 }
 export async function getLearningRecords() {
-  const user = await getOrCreateTestUser();
+  const user = await getCurrentUser();
   return api<LearningSession[]>(`/api/v1/learning/users/${user.id}/records`);
 }
 
 export async function getHousekeepingCourses() {
-  const user = await getOrCreateTestUser();
+  const user = await getCurrentUser();
   return api<CourseCard[]>(`/api/v1/housekeeping/courses?user_id=${user.id}`);
 }
 
 export async function startHousekeepingCourse(courseId: string) {
-  const user = await getOrCreateTestUser();
+  const user = await getCurrentUser();
   return api<LearningSession>(`/api/v1/housekeeping/courses/${courseId}/start`, {
     method: "POST",
     body: JSON.stringify({ user_id: user.id }),
@@ -99,12 +119,12 @@ export async function startHousekeepingCourse(courseId: string) {
 }
 
 export async function getLearningOverview() {
-  const user = await getOrCreateTestUser();
+  const user = await getCurrentUser();
   return api<LearningOverview>(`/api/v1/learning/overview?user_id=${user.id}`);
 }
 
 export async function startAssessment(kind: "pre" | "post", idempotencyKey: string) {
-  const user = await getOrCreateTestUser();
+  const user = await getCurrentUser();
   return api<AssessmentAttempt>(`/api/v1/assessments/${kind}/start`, {
     method: "POST",
     body: JSON.stringify({ user_id: user.id, idempotency_key: idempotencyKey }),
@@ -123,20 +143,17 @@ export function submitAssessment(attemptId: number) {
 }
 
 export async function getLearningReport() {
-  const user = await getOrCreateTestUser();
+  const user = await getCurrentUser();
   return api<LearningReport>(`/api/v1/learning/report?user_id=${user.id}`);
 }
 
-function adminHeaders(adminKey: string) { return { "X-Admin-Key": adminKey }; }
-
-export function getAdminCourseVersions(adminKey: string) {
-  return api<AdminCourseVersion[]>("/api/v1/admin/course-versions", { headers: adminHeaders(adminKey) });
+export function getAdminCourseVersions() {
+  return api<AdminCourseVersion[]>("/api/v1/admin/course-versions");
 }
 
-export function updateAdminCourseVersion(adminKey: string, version: AdminCourseVersion, sourceRefs: Array<{ name: string; url: string }>, actor: string) {
+export function updateAdminCourseVersion(version: AdminCourseVersion, sourceRefs: Array<{ name: string; url: string }>, actor: string) {
   return api<AdminCourseVersion>(`/api/v1/admin/course-versions/${version.id}`, {
     method: "PUT",
-    headers: adminHeaders(adminKey),
     body: JSON.stringify({
       objectives: version.objectives,
       source_refs: sourceRefs,
@@ -154,7 +171,6 @@ export function updateAdminCourseVersion(adminKey: string, version: AdminCourseV
 }
 
 export function runAdminCourseAction(
-  adminKey: string,
   versionId: number,
   action: "submit-review" | "publish" | "suspend" | "rollback",
   actor: string,
@@ -162,13 +178,11 @@ export function runAdminCourseAction(
 ) {
   return api<AdminCourseVersion>(`/api/v1/admin/course-versions/${versionId}/${action}`, {
     method: "POST",
-    headers: adminHeaders(adminKey),
     body: JSON.stringify({ actor, comment, idempotency_key: `${action}-${versionId}-${crypto.randomUUID()}` }),
   });
 }
 
 export function reviewAdminCourseVersion(
-  adminKey: string,
   versionId: number,
   reviewType: "professional" | "safety" | "editorial",
   reviewer: string,
@@ -177,7 +191,6 @@ export function reviewAdminCourseVersion(
 ) {
   return api<AdminCourseVersion>(`/api/v1/admin/course-versions/${versionId}/approve`, {
     method: "POST",
-    headers: adminHeaders(adminKey),
     body: JSON.stringify({ actor: reviewer, reviewer, review_type: reviewType, decision, comment, idempotency_key: `review-${versionId}-${reviewType}-${crypto.randomUUID()}` }),
   });
 }

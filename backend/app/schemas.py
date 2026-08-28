@@ -10,6 +10,53 @@ class UserOut(BaseModel):
 
     id: int
     display_name: str
+    role: str
+    status: str
+    consent_version: str | None
+    consented_at: datetime | None
+
+
+class InviteLoginIn(BaseModel):
+    invitation_code: str = Field(min_length=8, max_length=80)
+    display_name: str = Field(min_length=2, max_length=30)
+    consent_accepted: bool
+    consent_version: str = Field(min_length=4, max_length=40)
+
+    @field_validator("invitation_code", "display_name")
+    @classmethod
+    def strip_auth_fields(cls, value: str) -> str:
+        return value.strip()
+
+
+class DeleteAccountIn(BaseModel):
+    confirmation: str
+
+
+class DeleteAccountOut(BaseModel):
+    deleted: bool
+    receipt: str
+
+
+class InvitationCreateIn(BaseModel):
+    label: str = Field(min_length=2, max_length=120)
+    expires_days: int = Field(default=14, ge=1, le=30)
+
+
+class InvitationAdminOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    label: str
+    role: str
+    active: bool
+    claimed_by_user_id: int | None
+    expires_at: datetime | None
+    claimed_at: datetime | None
+    created_at: datetime
+
+
+class InvitationIssuedOut(InvitationAdminOut):
+    invitation_code: str
 
 
 class LessonOut(BaseModel):
