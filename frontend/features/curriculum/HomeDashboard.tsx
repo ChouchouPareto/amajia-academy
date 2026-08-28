@@ -11,7 +11,7 @@ import { HomeAiButton } from "@/features/question/HomeAiButton";
 import { HomeControls } from "@/features/home/HomeControls";
 
 const actions = {
-  start_pre_assessment: { href: "/assessment/pre", eyebrow: "先了解现在的基础", title: "开始家政入门测一测", copy: "6道小题，不计考试，只用来推荐学习顺序。", button: "开始测一测" },
+  start_pre_assessment: { href: "/assessment/pre", eyebrow: "先了解现在的基础", title: "开始家政入门测一测", copy: "12道小题，不计考试，只用来推荐学习顺序。", button: "开始测一测" },
   continue_course: { href: "/housekeeping", eyebrow: "继续上一次学习", title: "接着学习下一门家政课", copy: "每节约8～10分钟，学习位置会自动保存。", button: "继续学习" },
   start_post_assessment: { href: "/assessment/post", eyebrow: "六门入门课已完成", title: "看看我学会了多少", copy: "完成后会得到前后对比和复习建议。", button: "开始学习后测" },
   view_report: { href: "/report", eyebrow: "本阶段学习已完成", title: "查看我的学习提升", copy: "看看已经掌握的内容，以及下一步应该复习什么。", button: "查看学习报告" },

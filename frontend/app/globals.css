@@ -599,14 +599,14 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .ai-guide-steps strong { color: var(--ink); font-size: 16px; }
 .ai-guide-steps p { margin: 3px 0 0; color: var(--helper); font-size: 13px; line-height: 1.5; }
 .modal-primary-action { display: flex; min-height: 54px; align-items: center; justify-content: space-between; margin-top: 18px; border-radius: 27px; background: var(--ink); padding: 10px 17px; color: #fff; font-weight: 850; }
-.home-ai-fab { position: fixed; z-index: 30; right: max(16px, calc((100vw - 760px) / 2 + 16px)); bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px)); display: inline-flex; min-width: 92px; min-height: 52px; align-items: center; justify-content: center; gap: 7px; border: 1px solid rgb(255 255 255 / 70%); border-radius: 999px; background: var(--ink); padding: 10px 16px; color: #fff; font-size: 15px; font-weight: 850; box-shadow: 0 12px 30px -10px rgb(8 48 76 / 48%); transition: background-color 180ms ease, box-shadow 180ms ease, transform 120ms ease; }
-.home-ai-fab:hover { background: #0a4668; }
+.home-ai-fab { position: fixed; z-index: 30; right: max(16px, calc((100vw - 760px) / 2 + 16px)); bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px)); display: inline-flex; min-width: 92px; min-height: 52px; align-items: center; justify-content: center; gap: 7px; border: 1px solid rgb(255 255 255 / 78%); border-radius: 999px; background: #2f7f66; padding: 10px 16px; color: #fff; font-size: 15px; font-weight: 850; box-shadow: 0 12px 28px -12px rgb(47 127 102 / 44%); transition: background-color 180ms ease, box-shadow 180ms ease, transform 120ms ease; }
+.home-ai-fab:hover { background: #286f59; }
 .home-ai-fab:active { transform: scale(.96); }
 .home-ai-fab:focus-visible { outline: 3px solid rgb(38 192 255 / 55%); outline-offset: 3px; }
 .academy-primary-card { min-height: 228px; border: 1px solid rgb(8 48 76 / 9%); border-radius: 26px; background: linear-gradient(145deg, #fff 0%, #f4fbf6 100%); padding: 21px 20px; box-shadow: var(--shadow-float); }
 .academy-primary-card h2 { max-width: 16ch; margin: 6px 0 0; color: var(--ink); font-size: 28px; letter-spacing: -.04em; line-height: 1.28; }
 .academy-primary-card > p:not(.section-kicker) { max-width: 34ch; margin: 14px 0 0; color: #455861; font-size: 16px; line-height: 1.65; }
-.academy-main-action { display: grid; min-height: 58px; grid-template-columns: 1fr 24px; align-items: center; gap: 10px; margin-top: 24px; border-radius: 29px; background: var(--ink); padding: 11px 18px; color: white; font-weight: 850; box-shadow: var(--shadow-soft); }
+.academy-main-action { display: grid; min-height: 58px; grid-template-columns: 1fr 24px; align-items: center; gap: 10px; margin-top: 24px; border-radius: 29px; background: #2f7f66; padding: 11px 18px; color: white; font-weight: 850; box-shadow: 0 14px 26px -18px rgb(47 127 102 / 52%); }
 .academy-main-action svg { justify-self: end; }
 .academy-inline-progress { margin-top: 18px; border-top: 1px solid rgb(8 48 76 / 9%); padding-top: 14px; }
 .academy-inline-progress > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--helper); font-size: 12px; }
@@ -644,6 +644,13 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .ai-sources > strong { color: var(--ink); font-size: 14px; }
 .ai-sources > div { display: flex; align-items: center; gap: 8px; color: #52656e; font-size: 13px; }
 .ai-trace-note { margin: 16px 0 0; color: #68777d; font-size: 12px; line-height: 1.55; }
+.ask-result-card { outline: none; }
+.ask-result-card h2 { margin: 14px 0 0; color: var(--ink); font-size: clamp(26px, 7vw, 34px); letter-spacing: -.035em; line-height: 1.3; }
+.ask-learning-prompt { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 10px; margin-top: 22px; border-radius: 19px; background: var(--mint); padding: 16px; color: #195f3f; }
+.ask-learning-prompt strong { font-size: 16px; }
+.ask-learning-prompt p { margin: 4px 0 0; font-size: 14px; line-height: 1.6; }
+.ask-result-card .rainbow-button { margin-top: 18px; }
+.ask-result-card > .secondary-action { width: 100%; }
 .career-shell { padding-bottom: max(38px, env(safe-area-inset-bottom)); }
 .career-intro { padding: 38px 3px 24px; }
 .career-intro h1 { margin: 5px 0 0; color: var(--ink); font-size: clamp(40px, 11vw, 54px); letter-spacing: -.055em; line-height: 1.08; }
