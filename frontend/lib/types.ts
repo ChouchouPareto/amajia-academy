@@ -89,6 +89,7 @@ export type QuizResult = {
 export type QuestionRequest = {
   id: number;
   user_id: number;
+  conversation_id: number | null;
   original_text: string;
   understood_text: string;
   status: "waiting_confirmation" | "answered" | "knowledge_unavailable" | "confirmed" | "blocked" | "no_match";

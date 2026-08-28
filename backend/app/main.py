@@ -19,7 +19,7 @@ from .media_service import published_media_for_version
 from .auth import AuthError, require_current_user, router as auth_router, seed_development_invitations
 from .db import engine, ensure_schema, get_db
 from .assessments import ASSESSMENT_VERSION, public_questions, questions_for, score_answers
-from .models import AssessmentAttempt, CourseVersion, LearningSession, Lesson, QuestionRequest, User
+from .models import AssessmentAttempt, CoachConversation, CourseVersion, LearningSession, Lesson, QuestionRequest, User
 from .schemas import (
     AssessmentAnswerIn,
     AssessmentAttemptOut,
@@ -27,6 +27,7 @@ from .schemas import (
     AssessmentSubmitOut,
     AiCapabilityOut,
     CourseCardOut,
+    CoachConversationOut,
     CourseVersionOut,
     LessonOut,
     LearningOverviewOut,
@@ -145,6 +146,7 @@ def serialize_question(question: QuestionRequest) -> QuestionOut:
     return QuestionOut(
         id=question.id,
         user_id=question.user_id,
+        conversation_id=question.conversation_id,
         original_text=question.original_text,
         understood_text=question.understood_text,
         status=question.status,
@@ -160,6 +162,27 @@ def serialize_question(question: QuestionRequest) -> QuestionOut:
         prompt_version=question.prompt_version,
         latency_ms=question.latency_ms,
     )
+
+
+@app.get("/api/v1/coach/conversations", response_model=list[CoachConversationOut])
+def list_coach_conversations(user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    return list(db.scalars(select(CoachConversation).where(CoachConversation.user_id == user.id, CoachConversation.status == "active").order_by(CoachConversation.updated_at.desc()).limit(30)))
+
+
+@app.post("/api/v1/coach/conversations", response_model=CoachConversationOut)
+def create_coach_conversation(user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    conversation = CoachConversation(user_id=user.id)
+    db.add(conversation); db.commit(); db.refresh(conversation)
+    return conversation
+
+
+@app.get("/api/v1/coach/conversations/{conversation_id}/questions", response_model=list[QuestionOut])
+def get_conversation_questions(conversation_id: int, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    conversation = db.get(CoachConversation, conversation_id)
+    if conversation is None:
+        return error_response(404, "CONVERSATION_NOT_FOUND", "没有找到这次陪学对话")
+    ensure_owner(user, conversation.user_id)
+    return [serialize_question(item) for item in db.scalars(select(QuestionRequest).where(QuestionRequest.conversation_id == conversation.id).order_by(QuestionRequest.created_at))]
 
 
 def resolve_lesson_id(text: str) -> str | None:
@@ -272,10 +295,16 @@ def create_question(payload: QuestionIn, user: User = Depends(require_current_us
         return serialize_question(existing)
 
     normalized = payload.text.strip()
+    conversation = db.get(CoachConversation, payload.conversation_id) if payload.conversation_id else None
+    if payload.conversation_id and conversation is None:
+        return error_response(404, "CONVERSATION_NOT_FOUND", "没有找到这次陪学对话")
+    if conversation:
+        ensure_owner(user, conversation.user_id)
     high_risk_terms = ("误食", "喝了清洁剂", "呼吸困难", "急救", "吃什么药", "用药", "昏迷", "大量出血")
     if any(term in normalized for term in high_risk_terms):
         question = QuestionRequest(
             user_id=payload.user_id,
+            conversation_id=payload.conversation_id,
             idempotency_key=payload.idempotency_key,
             original_text=normalized,
             understood_text=f"你想了解：“{normalized}”，对吗？",
@@ -289,6 +318,7 @@ def create_question(payload: QuestionIn, user: User = Depends(require_current_us
         if lesson_id is None:
             question = QuestionRequest(
                 user_id=payload.user_id,
+                conversation_id=payload.conversation_id,
                 idempotency_key=payload.idempotency_key,
                 original_text=normalized,
                 understood_text=f"你想了解：“{normalized}”，对吗？",
@@ -300,6 +330,7 @@ def create_question(payload: QuestionIn, user: User = Depends(require_current_us
             lesson = db.get(Lesson, lesson_id)
             question = QuestionRequest(
                 user_id=payload.user_id,
+                conversation_id=payload.conversation_id,
                 idempotency_key=payload.idempotency_key,
                 original_text=normalized,
                 understood_text=f"你想学习“{lesson.title if lesson else normalized}”，对吗？",
@@ -308,6 +339,9 @@ def create_question(payload: QuestionIn, user: User = Depends(require_current_us
                 risk_level="L0",
             )
     db.add(question)
+    if conversation:
+        conversation.title = normalized[:36]
+        conversation.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(question)
     return serialize_question(question)

@@ -83,11 +83,11 @@ export function createInvitation(label: string, expiresDays: number) {
   });
 }
 
-export async function createQuestion(text: string, idempotencyKey: string): Promise<QuestionRequest> {
+export async function createQuestion(text: string, idempotencyKey: string, conversationId?: number): Promise<QuestionRequest> {
   const user = await getCurrentUser();
   return api<QuestionRequest>("/api/v1/questions", {
     method: "POST",
-    body: JSON.stringify({ user_id: user.id, text, idempotency_key: idempotencyKey }),
+    body: JSON.stringify({ user_id: user.id, text, idempotency_key: idempotencyKey, conversation_id: conversationId }),
   });
 }
 

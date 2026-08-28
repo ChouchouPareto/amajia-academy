@@ -185,12 +185,23 @@ class LearningSession(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class CoachConversation(Base):
+    __tablename__ = "coach_conversations"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(120), default="新的陪学对话")
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+
 class QuestionRequest(Base):
     __tablename__ = "question_requests"
     __table_args__ = (UniqueConstraint("user_id", "idempotency_key", name="uq_user_question_key"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    conversation_id: Mapped[int | None] = mapped_column(ForeignKey("coach_conversations.id"), nullable=True, index=True)
     idempotency_key: Mapped[str] = mapped_column(String(80))
     original_text: Mapped[str] = mapped_column(Text)
     understood_text: Mapped[str] = mapped_column(Text)

@@ -79,6 +79,7 @@ class StartLessonIn(BaseModel):
 
 class QuestionIn(BaseModel):
     user_id: int
+    conversation_id: int | None = None
     text: str = Field(min_length=4, max_length=200)
     idempotency_key: str = Field(min_length=8, max_length=80)
 
@@ -94,6 +95,7 @@ class QuestionIn(BaseModel):
 class QuestionOut(BaseModel):
     id: int
     user_id: int
+    conversation_id: int | None
     original_text: str
     understood_text: str
     status: str
@@ -108,6 +110,16 @@ class QuestionOut(BaseModel):
     model_name: str | None
     prompt_version: str | None
     latency_ms: int | None
+
+
+class CoachConversationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    user_id: int
+    title: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
 
 
 class AiCapabilityOut(BaseModel):
