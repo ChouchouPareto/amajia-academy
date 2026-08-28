@@ -114,7 +114,7 @@ export function LearningFlow({ sessionId }: { sessionId: string }) {
 
   return (
     <main id="main-content" className="flow-shell">
-      <header className="flow-topbar"><Link className="back-link" href={view === "confirm" ? `/ask?example=${encodeURIComponent(questionRequest?.original_text ?? "")}` : "/housekeeping"}><ArrowLeft aria-hidden="true" size={20} />{view === "confirm" ? "修改问题" : "返回学习路径"}</Link><span className="prototype-badge"><Bot aria-hidden="true" size={15} />阿嬷 AI 老师</span></header>
+      <header className="flow-topbar"><Link className="back-link" href={view === "confirm" ? `/coach?example=${encodeURIComponent(questionRequest?.original_text ?? "")}` : "/housekeeping"}><ArrowLeft aria-hidden="true" size={20} />{view === "confirm" ? "修改问题" : "返回学习路径"}</Link><span className="prototype-badge"><Bot aria-hidden="true" size={15} />阿嬷 AI 老师</span></header>
       {view === "confirm" && questionRequest && <ConfirmView understood={questionRequest.understood_text} onConfirm={startProcessing} />}
       {view === "processing" && <ProcessingView step={processingStep} />}
       {view === "ai_answer" && questionRequest && <AiAnswerView result={questionRequest} onContinue={async () => { const session = await confirmQuestion(questionRequest.id); router.push(`/learn/${session.id}`); }} />}
@@ -131,7 +131,7 @@ export function LearningFlow({ sessionId }: { sessionId: string }) {
 }
 
 function ConfirmView({ understood, onConfirm }: { understood: string; onConfirm: () => void }) {
-  return <section className="flow-card flow-card--question"><span className="step-pill">先确认一下</span><h1>你问的是这个吗？</h1><blockquote>{understood}</blockquote><button className="rainbow-button" onClick={onConfirm}><span><Check aria-hidden="true" size={21} />对，就是这个问题</span><ArrowRight aria-hidden="true" size={22} /></button><Link className="secondary-action" href="/ask">不是，我要改一下</Link></section>;
+  return <section className="flow-card flow-card--question"><span className="step-pill">先确认一下</span><h1>你问的是这个吗？</h1><blockquote>{understood}</blockquote><button className="rainbow-button" onClick={onConfirm}><span><Check aria-hidden="true" size={21} />对，就是这个问题</span><ArrowRight aria-hidden="true" size={22} /></button><Link className="secondary-action" href="/coach">不是，我要改一下</Link></section>;
 }
 
 function ProcessingView({ step }: { step: number }) {
@@ -151,7 +151,7 @@ function AiAnswerView({ result, onContinue }: { result: QuestionRequest; onConti
     {result.knowledge_refs.length > 0 && <div className="ai-sources"><strong>回答依据</strong>{result.knowledge_refs.map((ref, index) => <div key={`${ref.type}-${index}`}><FileCheck2 aria-hidden="true" size={18} /><span>{ref.type === "course" ? `${ref.title} · 第${ref.version}版` : ref.name}</span></div>)}</div>}
     <p className="ai-trace-note">{isModel ? `模型：${result.model_name ?? "已配置模型"} · ` : ""}回答方式和课程版本已记录，便于内测追溯。</p>
     <button className="rainbow-button" type="button" onClick={continueLearning} disabled={starting}><span>{starting ? "正在打开课程…" : "跟着这门课程继续学"}</span><ArrowRight aria-hidden="true" size={22} /></button>
-    <Link className="secondary-action" href="/ask">再问一个问题</Link>
+    <Link className="secondary-action" href="/coach">再问一个问题</Link>
   </section>;
 }
 
@@ -173,11 +173,11 @@ function CompleteView({ lesson }: { lesson: Lesson }) {
 }
 
 function BlockedView({ result }: { result: QuestionRequest }) {
-  return <section className="flow-card state-card state-card--danger"><div className="state-icon"><ShieldAlert aria-hidden="true" size={34} /></div><p className="section-kicker">安全提醒 · {result.risk_level}</p><h1>这个问题目前不能在这里继续讲</h1><p>{result.message}</p><div className="urgent-box"><AlertTriangle aria-hidden="true" size={22} /><span>{result.next_action}</span></div><Link className="rainbow-button" href="/ask"><span>重新问一个问题</span><ArrowRight aria-hidden="true" size={22} /></Link><Link className="secondary-action" href="/">返回首页</Link></section>;
+  return <section className="flow-card state-card state-card--danger"><div className="state-icon"><ShieldAlert aria-hidden="true" size={34} /></div><p className="section-kicker">安全提醒 · {result.risk_level}</p><h1>这个问题目前不能在这里继续讲</h1><p>{result.message}</p><div className="urgent-box"><AlertTriangle aria-hidden="true" size={22} /><span>{result.next_action}</span></div><Link className="rainbow-button" href="/coach"><span>重新问一个问题</span><ArrowRight aria-hidden="true" size={22} /></Link><Link className="secondary-action" href="/choose-mode">切换学习方式</Link></section>;
 }
 
 function NoMatchView({ result }: { result: QuestionRequest }) {
-  return <section className="flow-card state-card"><div className="state-icon state-icon--sky"><CircleHelp aria-hidden="true" size={34} /></div><p className="section-kicker">这次先不随便回答</p><h1>还没有找到足够可靠的内容</h1><p>{result.message}</p><Link className="rainbow-button" href={`/ask?example=${encodeURIComponent(result.original_text)}`}><span><RefreshCcw aria-hidden="true" size={20} />换一个说法</span><ArrowRight aria-hidden="true" size={22} /></Link><Link className="secondary-action" href="/">看看示例问题</Link></section>;
+  return <section className="flow-card state-card"><div className="state-icon state-icon--sky"><CircleHelp aria-hidden="true" size={34} /></div><p className="section-kicker">这次先不随便回答</p><h1>还没有找到足够可靠的内容</h1><p>{result.message}</p><Link className="rainbow-button" href={`/coach?example=${encodeURIComponent(result.original_text)}`}><span><RefreshCcw aria-hidden="true" size={20} />换一个说法</span><ArrowRight aria-hidden="true" size={22} /></Link><Link className="secondary-action" href="/coach">看看示例问题</Link></section>;
 }
 
 function FailedView({ message }: { message: string }) {

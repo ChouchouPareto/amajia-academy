@@ -572,7 +572,7 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .academy-welcome > div > div > p { margin: 0 0 2px; color: var(--ink-soft); font-size: 14px; font-weight: 750; }
 .academy-welcome h1 { margin: 0; color: var(--ink); font-size: clamp(38px, 10vw, 50px); letter-spacing: -.055em; line-height: 1.06; }
 .academy-welcome .academy-lead { margin: 0; color: #455861; font-size: 16px; font-weight: 650; line-height: 1.62; }
-.home-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.home-controls { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 .academy-learning-summary + .home-controls { margin-top: 24px; }
 .home-controls > button, .home-controls > a { display: grid; min-width: 0; min-height: 70px; grid-template-columns: 24px minmax(0, 1fr); align-content: center; align-items: center; gap: 0 7px; border: 1px solid rgb(8 48 76 / 9%); border-radius: 19px; background: #fff; padding: 9px; color: var(--ink); text-align: left; box-shadow: var(--shadow-soft); }
 .home-controls > button { width: 100%; }
@@ -980,6 +980,71 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
   .coach-drawer,
   .coach-drawer-scrim { transition: none; }
   .composer-loader { animation-duration: 1.5s; }
+}
+
+/* 登录后的统一学习方式入口 */
+.mode-shell {
+  width: min(100% - 28px, 780px);
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: max(18px, env(safe-area-inset-top)) 0 max(36px, env(safe-area-inset-bottom));
+}
+.mode-header { display: flex; min-height: 56px; align-items: center; gap: 12px; }
+.mode-logo { display: grid; width: 50px; height: 50px; flex: 0 0 auto; place-items: center; border-radius: 18px; background: var(--mint); color: #195f3f; }
+.mode-header strong,
+.mode-header span { display: block; }
+.mode-header strong { color: var(--ink); font-size: 18px; }
+.mode-header div > span { margin-top: 2px; color: var(--helper); font-size: 12px; }
+.mode-intro { padding: clamp(52px, 10vh, 92px) 4px 28px; }
+.mode-intro h1 { margin: 8px 0 0; color: var(--ink); font-size: clamp(38px, 9vw, 58px); letter-spacing: -.05em; line-height: 1.08; }
+.mode-intro > p:last-child { max-width: 38ch; margin: 18px 0 0; color: #425763; font-size: 17px; line-height: 1.7; }
+.mode-options { display: grid; gap: 16px; }
+.mode-card { position: relative; overflow: hidden; border: 1px solid rgb(8 48 76 / 9%); border-radius: 28px; background: white; padding: clamp(20px, 5vw, 28px); box-shadow: var(--shadow-soft); }
+.mode-card--coach { border-color: rgb(25 95 63 / 18%); background: linear-gradient(145deg, #fff 0%, #f7fff9 100%); }
+.mode-free { position: absolute; top: 18px; right: 18px; display: inline-flex; min-height: 30px; align-items: center; gap: 5px; border-radius: 999px; background: var(--mint); padding: 5px 10px; color: #195f3f; font-size: 11px; font-weight: 850; }
+.mode-card-head { display: grid; grid-template-columns: 58px 1fr; align-items: center; gap: 14px; padding-right: 70px; }
+.mode-card-head > span { display: grid; width: 58px; height: 58px; place-items: center; border-radius: 20px; background: var(--sky); color: var(--ink-soft); }
+.mode-card--coach .mode-card-head > span { background: var(--mint); color: #195f3f; }
+.mode-card-head p { margin: 0; color: var(--helper); font-size: 13px; font-weight: 800; }
+.mode-card-head h2 { margin: 4px 0 0; color: var(--ink); font-size: clamp(21px, 5.5vw, 28px); line-height: 1.3; }
+.mode-card ul { display: grid; gap: 10px; margin: 24px 0 0; padding: 0; list-style: none; }
+.mode-card li { display: flex; align-items: center; gap: 9px; color: #425763; font-size: 15px; line-height: 1.5; }
+.mode-card li svg { flex: 0 0 auto; color: #2d7957; }
+.mode-action { display: grid; min-height: 60px; grid-template-columns: 1fr 24px; align-items: center; gap: 10px; margin-top: 26px; border-radius: 24px; padding: 11px 17px; font-size: 17px; font-weight: 850; transition: background-color 160ms ease, opacity 160ms ease; }
+.mode-action svg { justify-self: end; }
+.mode-action--basic { border: 1px solid var(--line); background: #f5f6f5; color: var(--ink); }
+.mode-action--coach { background: #dff4e6; color: #174f38; }
+.mode-action:hover { opacity: .78; }
+.mode-trust { display: flex; align-items: center; justify-content: center; gap: 7px; margin: 22px 0 0; color: var(--helper); font-size: 12px; text-align: center; }
+
+/* 专业陪学端内的课程步骤、检查与完成状态 */
+.coach-lesson-card { border: 1px solid rgb(8 48 76 / 9%); border-radius: 26px; background: #fbfffc; padding: clamp(20px, 5vw, 28px); box-shadow: var(--shadow-soft); }
+.coach-lesson-card h2 { margin: 16px 0 0; color: var(--ink); font-size: clamp(25px, 6vw, 33px); line-height: 1.3; }
+.coach-safety-line { display: grid; grid-template-columns: 24px 1fr; gap: 9px; margin-top: 18px; border-radius: 18px; background: var(--peach); padding: 14px; color: #75421f; font-size: 14px; line-height: 1.6; }
+.coach-lesson-progress { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--ink-soft); font-size: 13px; font-weight: 800; }
+.coach-lesson-track { height: 7px; margin-top: 9px; overflow: hidden; border-radius: 999px; background: #e4ebe6; }
+.coach-lesson-track > span { display: block; height: 100%; border-radius: inherit; background: #51a979; transition: width 200ms ease; }
+.coach-answer-options { display: grid; gap: 10px; margin-top: 22px; }
+.coach-answer-options button { display: grid; min-height: 62px; grid-template-columns: 36px 1fr 24px; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 20px; background: white; padding: 11px 14px; color: var(--ink); text-align: left; }
+.coach-answer-options button > span { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 12px; background: #eef2f1; font-size: 13px; font-weight: 850; }
+.coach-answer-options button.is-selected { border-color: #3d8960; background: var(--mint); box-shadow: 0 0 0 2px rgb(61 137 96 / 10%); }
+.coach-complete-mark { display: grid; width: 64px; height: 64px; place-items: center; border-radius: 50%; background: var(--mint); color: #256b4a; }
+.coach-lesson-complete > p:not(.coach-kicker) { color: #425763; line-height: 1.75; }
+
+@media (min-width: 720px) {
+  .mode-options { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+  .mode-card { display: flex; flex-direction: column; }
+  .mode-card .mode-action { margin-top: auto; transform: translateY(2px); }
+  .mode-card ul { margin-bottom: 28px; }
+}
+
+@media (max-width: 420px) {
+  .mode-intro { padding-top: 44px; }
+  .mode-card { border-radius: 24px; padding: 19px 17px; }
+  .mode-card-head { grid-template-columns: 52px 1fr; gap: 12px; padding-right: 58px; }
+  .mode-card-head > span { width: 52px; height: 52px; border-radius: 18px; }
+  .mode-free { top: 14px; right: 14px; max-width: 72px; justify-content: center; text-align: center; }
+  .mode-card li { font-size: 14px; }
 }
 
 /* 内部课程审核页 */

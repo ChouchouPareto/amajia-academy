@@ -1,6 +1,7 @@
-import { AskForm } from "@/features/question/AskForm";
+import { redirect } from "next/navigation";
 
 export default async function AskPage({ searchParams }: { searchParams: Promise<{ example?: string }> }) {
   const { example = "" } = await searchParams;
-  return <AskForm initialQuestion={example} />;
+  const suffix = example ? `?example=${encodeURIComponent(example)}` : "";
+  redirect(`/coach${suffix}`);
 }

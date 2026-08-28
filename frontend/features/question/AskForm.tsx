@@ -1,13 +1,12 @@
 "use client";
 
-import { ArrowRight, BookOpenCheck, Bot, CircleHelp, FileCheck2, GraduationCap, History, LockKeyhole, Menu, Mic, Plus, SendHorizontal, Settings, ShieldAlert, ShieldCheck, Sparkles, X } from "lucide-react";
+import { ArrowRight, BookOpenCheck, Bot, Check, CircleHelp, FileCheck2, LockKeyhole, Menu, Mic, Plus, Repeat2, SendHorizontal, Settings, ShieldAlert, ShieldCheck, Sparkles, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { SpeakButton } from "@/components/SpeakButton";
-import { answerQuestion, AppError, confirmQuestion, createQuestion } from "@/lib/api";
-import type { QuestionRequest } from "@/lib/types";
+import { answerQuestion, AppError, confirmQuestion, createQuestion, saveLearningProgress, submitQuiz } from "@/lib/api";
+import type { LearningSession, QuestionRequest } from "@/lib/types";
 
 const examples = ["厨房油污，应该先擦哪里？", "清洁剂为什么不能随便混用？", "洗衣前应该先检查什么？"];
 type SpeechEvent = { results: ArrayLike<{ 0: { transcript: string } }> };
@@ -21,13 +20,13 @@ function getRecognition() {
 }
 
 export function AskForm({ initialQuestion }: { initialQuestion: string }) {
-  const router = useRouter();
   const errorRef = useRef<HTMLDivElement>(null);
   const idempotencyRef = useRef<string | null>(null);
   const resultRef = useRef<HTMLElement>(null);
   const recognitionRef = useRef<Recognition | null>(null);
   const [question, setQuestion] = useState(initialQuestion);
   const [result, setResult] = useState<QuestionRequest | null>(null);
+  const [learningSession, setLearningSession] = useState<LearningSession | null>(null);
   const [error, setError] = useState("");
   const [voiceMessage, setVoiceMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -65,7 +64,7 @@ export function AskForm({ initialQuestion }: { initialQuestion: string }) {
 
   function chooseExample(example: string) { setQuestion(example); setError(""); setVoiceMessage(""); idempotencyRef.current = null; }
   function askAgain() {
-    setResult(null); setQuestion(""); setError(""); setVoiceMessage(""); idempotencyRef.current = null;
+    setResult(null); setLearningSession(null); setQuestion(""); setError(""); setVoiceMessage(""); idempotencyRef.current = null;
     requestAnimationFrame(() => document.getElementById("coach-question")?.focus());
   }
   function toggleVoiceInput() {
@@ -81,15 +80,14 @@ export function AskForm({ initialQuestion }: { initialQuestion: string }) {
   }
   async function continueLearning() {
     if (!result?.lesson_id) return;
-    const session = await confirmQuestion(result.id);
-    router.push(`/learn/${session.id}`);
+    setLearningSession(await confirmQuestion(result.id));
   }
 
   return <main id="main-content" className="coach-shell">
     <header className="coach-topbar">
       <button className="coach-icon-button" type="button" onClick={() => setDrawerOpen(true)} aria-label="打开学习菜单" aria-expanded={drawerOpen}><Menu aria-hidden="true" size={27} /></button>
       <div className="coach-brand" aria-label="阿嬷学院 AI 陪学"><strong>阿嬷 AI 老师</strong><span>家政入门陪学</span></div>
-      <Link className="coach-icon-button" href="/housekeeping" aria-label="打开家政课程"><GraduationCap aria-hidden="true" size={27} /></Link>
+      <Link className="coach-icon-button" href="/choose-mode" aria-label="切换学习方式"><Repeat2 aria-hidden="true" size={25} /></Link>
     </header>
     <CoachDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
@@ -103,7 +101,8 @@ export function AskForm({ initialQuestion }: { initialQuestion: string }) {
       </div>}
       {result && <div className="coach-thread">
         <article className="coach-user-turn" aria-label="你的问题"><span>你问</span><p>{result.original_text}</p></article>
-        <QuestionResult ref={resultRef} result={result} onContinue={continueLearning} onAskAgain={askAgain} />
+        <QuestionResult ref={resultRef} result={result} learningStarted={Boolean(learningSession)} onContinue={continueLearning} onAskAgain={askAgain} />
+        {learningSession && <CoachLesson session={learningSession} onSessionChange={setLearningSession} />}
       </div>}
     </section>
 
@@ -127,11 +126,9 @@ function CoachDrawer({ open, onClose }: { open: boolean; onClose: () => void }) 
     <button className="coach-drawer-scrim" type="button" onClick={onClose} tabIndex={open ? 0 : -1} aria-label="关闭学习菜单" />
     <aside className="coach-drawer" role="dialog" aria-modal="true" aria-label="学习菜单">
       <div className="coach-drawer-head"><div><strong>阿嬷学院</strong><span>从入门到上岗</span></div><button type="button" onClick={onClose} aria-label="关闭学习菜单"><X aria-hidden="true" size={24} /></button></div>
-      <Link className="drawer-primary" href="/ask" onClick={onClose}><Plus aria-hidden="true" size={21} />开始新提问</Link>
+      <Link className="drawer-primary" href="/coach" onClick={onClose}><Plus aria-hidden="true" size={21} />开始新提问</Link>
       <nav aria-label="学习功能">
-        <DrawerLink href="/housekeeping" icon={<BookOpenCheck />} title="家政入门课程" detail="六门基础课" onClick={onClose} />
-        <DrawerLink href="/records" icon={<History />} title="我的学习记录" detail="继续上次学习" onClick={onClose} />
-        <DrawerLink href="/career-path" icon={<GraduationCap />} title="学习与上岗" detail="技能和证书概览" onClick={onClose} />
+        <DrawerLink href="/choose-mode" icon={<Repeat2 />} title="切换学习方式" detail="基础版或 AI 专业陪学版" onClick={onClose} />
         <DrawerLink href="/account" icon={<Settings />} title="账号与大字模式" detail="管理学习设置" onClick={onClose} />
       </nav>
       <p><LockKeyhole aria-hidden="true" size={17} />测试数据仅用于改进学习体验</p>
@@ -143,7 +140,7 @@ function DrawerLink({ href, icon, title, detail, onClick }: { href: string; icon
   return <Link href={href} onClick={onClick}><span className="drawer-link-icon" aria-hidden="true">{icon}</span><span><strong>{title}</strong><small>{detail}</small></span><ArrowRight aria-hidden="true" size={18} /></Link>;
 }
 
-function QuestionResult({ ref, result, onContinue, onAskAgain }: { ref: React.Ref<HTMLElement>; result: QuestionRequest; onContinue: () => Promise<void>; onAskAgain: () => void }) {
+function QuestionResult({ ref, result, learningStarted, onContinue, onAskAgain }: { ref: React.Ref<HTMLElement>; result: QuestionRequest; learningStarted: boolean; onContinue: () => Promise<void>; onAskAgain: () => void }) {
   const [starting, setStarting] = useState(false);
   const [actionError, setActionError] = useState("");
   const available = Boolean(result.answer);
@@ -156,7 +153,48 @@ function QuestionResult({ ref, result, onContinue, onAskAgain }: { ref: React.Re
     {available ? <><p className="coach-answer-copy">{result.answer}</p><SpeakButton text={result.answer ?? ""} label="播报回答" /></> : <div className="coach-unavailable"><ShieldCheck aria-hidden="true" size={22} /><div><strong>这次不自由编答案</strong><p>{result.message}</p></div></div>}
     {result.knowledge_refs.length > 0 && <div className="coach-sources"><strong>回答来自</strong>{result.knowledge_refs.map((source, index) => <div key={`${source.type}-${index}`}><FileCheck2 aria-hidden="true" size={17} /><span>{source.type === "course" ? `${source.title} · 第${source.version}版` : source.name}</span></div>)}</div>}
     {actionError && <div className="coach-action-error" role="alert">{actionError}</div>}
-    {result.lesson_id && <button className="coach-course-action" type="button" onClick={() => void openCourse()} disabled={starting}><BookOpenCheck aria-hidden="true" size={22} /><span><strong>{starting ? "正在打开课程…" : "学习完整步骤"}</strong><small>{result.next_action ?? "看完整课程并做一道理解检查"}</small></span><ArrowRight aria-hidden="true" size={22} /></button>}
-    <button className="coach-text-action" type="button" onClick={onAskAgain}>继续问一个问题</button>
+    {result.lesson_id && !learningStarted && <button className="coach-course-action" type="button" onClick={() => void openCourse()} disabled={starting}><BookOpenCheck aria-hidden="true" size={22} /><span><strong>{starting ? "正在准备陪学…" : "在对话里继续学习"}</strong><small>{result.next_action ?? "AI 老师会在这里一步一步带你学"}</small></span><ArrowRight aria-hidden="true" size={22} /></button>}
+    {!learningStarted && <button className="coach-text-action" type="button" onClick={onAskAgain}>继续问一个问题</button>}
   </section>;
+}
+
+function CoachLesson({ session, onSessionChange }: { session: LearningSession; onSessionChange: (session: LearningSession) => void }) {
+  const [phase, setPhase] = useState<"intro" | "step" | "quiz" | "complete">(session.status === "completed" ? "complete" : "intro");
+  const [stepIndex, setStepIndex] = useState(session.current_step);
+  const [answer, setAnswer] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [saving, setSaving] = useState(false);
+  const lesson = session.lesson;
+  const step = lesson.steps[stepIndex];
+  const progress = Math.round(((stepIndex + 1) / lesson.steps.length) * 100);
+
+  async function nextStep() {
+    if (stepIndex >= lesson.steps.length - 1) { setPhase("quiz"); return; }
+    setSaving(true); setFeedback("");
+    try {
+      const next = stepIndex + 1;
+      const updated = await saveLearningProgress(session.id, next);
+      onSessionChange(updated); setStepIndex(next);
+    } catch (caught) { setFeedback(caught instanceof AppError ? caught.message : "进度没有保存，请再试一次。"); }
+    finally { setSaving(false); }
+  }
+
+  async function checkAnswer() {
+    if (!answer) return;
+    setSaving(true); setFeedback("");
+    try {
+      const checked = await submitQuiz(session.id, answer);
+      onSessionChange(checked.session); setFeedback(checked.message);
+      if (checked.correct) window.setTimeout(() => setPhase("complete"), 500);
+    } catch (caught) { setFeedback(caught instanceof AppError ? caught.message : "答案没有提交成功，请再试一次。"); }
+    finally { setSaving(false); }
+  }
+
+  if (phase === "intro") return <section className="coach-lesson-card" aria-live="polite"><div className="coach-answer-label"><Bot aria-hidden="true" size={19} /><strong>现在开始陪你学</strong></div><h2>{lesson.title}</h2><p className="coach-answer-copy">先记住：{lesson.conclusion}</p><div className="coach-safety-line"><ShieldCheck aria-hidden="true" size={20} /><span>{lesson.disclaimer}</span></div><SpeakButton text={`${lesson.conclusion}。安全提醒：${lesson.disclaimer}`} label="听老师讲" /><button className="coach-course-action" type="button" onClick={() => setPhase("step")}><BookOpenCheck aria-hidden="true" size={22} /><span><strong>开始第一步</strong><small>共{lesson.steps.length}个小步骤，每次只学一件事</small></span><ArrowRight aria-hidden="true" size={22} /></button></section>;
+
+  if (phase === "step") return <section className="coach-lesson-card" aria-live="polite"><div className="coach-lesson-progress"><span>第{stepIndex + 1}步，共{lesson.steps.length}步</span><strong>{progress}%</strong></div><div className="coach-lesson-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div><p className="coach-kicker">阿嬷 AI 老师正在讲</p><h2>{step.title}</h2><p className="coach-answer-copy">{step.body}</p><SpeakButton text={`${step.title}。${step.body}`} label="播报这一步" />{feedback && <div className="coach-action-error" role="status">{feedback}</div>}<button className="coach-course-action" type="button" onClick={() => void nextStep()} disabled={saving}><Check aria-hidden="true" size={22} /><span><strong>{saving ? "正在保存…" : stepIndex === lesson.steps.length - 1 ? "我明白了，检查一下" : "我明白了，下一步"}</strong><small>学习位置会自动同步到基础版</small></span><ArrowRight aria-hidden="true" size={22} /></button></section>;
+
+  if (phase === "quiz") return <section className="coach-lesson-card" aria-live="polite"><div className="coach-answer-label"><Bot aria-hidden="true" size={19} /><strong>我来检查一下</strong></div><h2>{lesson.quiz.question}</h2><SpeakButton text={`${lesson.quiz.question}。${lesson.quiz.options.map((option) => `${option.id}，${option.label}`).join("。")}`} label="播报题目" /><div className="coach-answer-options" role="radiogroup" aria-label="答案选项">{lesson.quiz.options.map((option) => <button key={option.id} type="button" role="radio" aria-checked={answer === option.id} className={answer === option.id ? "is-selected" : ""} onClick={() => { setAnswer(option.id); setFeedback(""); }}><span>{option.id.toUpperCase()}</span><strong>{option.label}</strong>{answer === option.id && <Check aria-hidden="true" size={20} />}</button>)}</div>{feedback && <div className="coach-action-error" role="status">{feedback}</div>}<button className="coach-course-action" type="button" onClick={() => void checkAnswer()} disabled={!answer || saving}><Check aria-hidden="true" size={22} /><span><strong>{saving ? "正在检查…" : "提交给 AI 老师"}</strong><small>答错了也没关系，我会继续陪你学</small></span><ArrowRight aria-hidden="true" size={22} /></button></section>;
+
+  return <section className="coach-lesson-card coach-lesson-complete" aria-live="polite"><div className="coach-complete-mark"><Check aria-hidden="true" size={32} /></div><p className="coach-kicker">学习记录已经同步</p><h2>这门课学完了</h2><p>你完成了{lesson.steps.length}个步骤和一道理解检查。可以继续问我，也可以切换学习方式查看同一份进度。</p><button className="coach-text-action" type="button" onClick={() => { setPhase("intro"); setStepIndex(0); }}>再听一遍这门课</button></section>;
 }

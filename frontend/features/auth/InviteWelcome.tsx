@@ -20,9 +20,7 @@ export function InviteWelcome() {
     setBusy(true);
     try {
       const user = await loginWithInvite(invitationCode.trim(), displayName.trim());
-      const requested = new URLSearchParams(window.location.search).get("next");
-      const safeNext = requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/";
-      window.location.replace(user.role === "learner" ? safeNext : "/admin/content");
+      window.location.replace(user.role === "learner" ? "/choose-mode" : "/admin/content");
     } catch (caught) {
       setError(caught instanceof AppError ? caught.message : "暂时无法进入，请检查邀请码后重试。");
     } finally {

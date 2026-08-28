@@ -3,9 +3,9 @@ import Link from "next/link";
 
 export function HomeAiButton() {
   return (
-    <Link className="home-ai-fab" href="/ask" aria-label="打开阿嬷 AI 老师提问页">
+    <Link className="home-ai-fab" href="/coach" aria-label="进入 AI 专业陪学版">
       <Bot aria-hidden="true" size={22} />
-      <span>问 AI</span>
+      <span>AI 陪学</span>
     </Link>
   );
 }

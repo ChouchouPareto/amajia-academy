@@ -35,7 +35,7 @@ export function RecordsView() {
       <section className="records-intro"><p className="section-kicker">你的学习足迹</p><h1>我学过的</h1><p>学习位置会保存，关闭页面后也可以继续。</p></section>
       {records === null && !error && <div className="loading-card"><span className="loading-dots" aria-hidden="true"><i /><i /><i /></span><strong>正在加载学习记录</strong></div>}
       {error && <section className="empty-records"><div className="state-icon state-icon--sky"><RefreshCcw aria-hidden="true" size={34} /></div><h2>暂时加载不出来</h2><p>{error}</p><button className="rainbow-button" type="button" onClick={() => void load()}><span>再试一次</span><ArrowRight aria-hidden="true" size={22} /></button></section>}
-      {records?.length === 0 && <section className="empty-records"><div className="state-icon state-icon--sky"><BookOpen aria-hidden="true" size={34} /></div><h2>还没有学习记录</h2><p>从一个具体的生活问题开始，学习位置就会保存在这里。</p><Link className="rainbow-button" href="/ask"><span>开始第一次学习</span><ArrowRight aria-hidden="true" size={22} /></Link></section>}
+      {records?.length === 0 && <section className="empty-records"><div className="state-icon state-icon--sky"><BookOpen aria-hidden="true" size={34} /></div><h2>还没有学习记录</h2><p>从一个具体的生活问题开始，学习位置就会保存在这里。</p><Link className="rainbow-button" href="/coach"><span>进入 AI 专业陪学</span><ArrowRight aria-hidden="true" size={22} /></Link></section>}
       {learning.length > 0 && <RecordGroup title="学习中" records={learning} />}
       {completed.length > 0 && <RecordGroup title="已完成" records={completed} />}
       <footer className="prototype-note">记录已保存到学习服务 · 当前使用本地测试身份</footer>

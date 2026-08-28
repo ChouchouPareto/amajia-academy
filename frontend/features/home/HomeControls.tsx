@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenCheck, Bot, Check, ChevronRight, Text, UserRound, X } from "lucide-react";
+import { BookOpenCheck, Bot, Check, ChevronRight, Repeat2, Text, UserRound, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -38,6 +38,7 @@ export function HomeControls() {
         <button type="button" aria-pressed={largeText} onClick={toggleLargeText}><Text aria-hidden="true" size={21} /><span>大字</span><small>{largeText ? "已开启" : "标准"}</small></button>
         <button type="button" onClick={() => setPanel("guide")}><Bot aria-hidden="true" size={21} /><span>AI 引导</span><small>教我操作</small></button>
         <Link href="/account"><UserRound aria-hidden="true" size={21} /><span>账号</span><small>管理资料</small></Link>
+        <Link href="/choose-mode"><Repeat2 aria-hidden="true" size={21} /><span>版本</span><small>切换方式</small></Link>
       </section>
       {panel && <div className="home-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPanel(null); }}>
         <section className="home-modal" role="dialog" aria-modal="true" aria-labelledby="home-modal-title">
@@ -54,5 +55,5 @@ function CoursePanel() {
 }
 
 function GuidePanel() {
-  return <><p className="section-kicker">AI 引导操作</p><h2 id="home-modal-title">我可以一步一步带你用</h2><ol className="ai-guide-steps"><li><span>1</span><div><strong>说出你想学的事</strong><p>不用专业词，像平时说话一样提问。</p></div></li><li><span>2</span><div><strong>先确认我有没有听懂</strong><p>不对就返回修改，不会直接乱回答。</p></div></li><li><span>3</span><div><strong>跟着课程一步步学</strong><p>每次只做一件事，学习位置自动保存。</p></div></li></ol><Link className="modal-primary-action" href="/ask">现在问 AI 老师<ChevronRight aria-hidden="true" size={21} /></Link></>;
+  return <><p className="section-kicker">AI 专业陪学</p><h2 id="home-modal-title">AI 老师可以全程陪着学</h2><ol className="ai-guide-steps"><li><span>1</span><div><strong>说出你想学的事</strong><p>不用专业词，像平时说话一样提问。</p></div></li><li><span>2</span><div><strong>在对话里一步一步学</strong><p>不用跳回普通课程页面。</p></div></li><li><span>3</span><div><strong>进度自动同步</strong><p>切换回基础版也能看到同一份学习记录。</p></div></li></ol><Link className="modal-primary-action" href="/coach">进入 AI 专业陪学<ChevronRight aria-hidden="true" size={21} /></Link></>;
 }
