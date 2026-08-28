@@ -35,7 +35,6 @@ export function HomeDashboard() {
   return (
     <main id="main-content" className="home-shell academy-home">
       <AppHeader current="home" />
-      <HomeControls />
       <section className="academy-welcome">
         <span className="academy-badge"><GraduationCap aria-hidden="true" size={18} />家政入门内测版</span>
         <div><div><p>你好，欢迎来到</p><h1>阿嬷学院</h1></div><p className="academy-lead">从家政入门，<br />一步一步学到上岗准备。</p></div>
@@ -57,6 +56,7 @@ export function HomeDashboard() {
         )}
       </section>
 
+      <HomeControls />
       <section className="academy-shortcuts" aria-labelledby="shortcut-title">
         <div className="mobile-section-title"><div><span>常用入口</span><h2 id="shortcut-title">学习与上岗</h2></div></div>
         <div>
