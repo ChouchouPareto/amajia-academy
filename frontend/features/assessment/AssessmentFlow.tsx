@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { AppError, saveAssessmentAnswer, startAssessment, submitAssessment } from "@/lib/api";
 import type { AssessmentAttempt, AssessmentResult } from "@/lib/types";
+import { SpeakButton } from "@/components/SpeakButton";
 
 export function AssessmentFlow({ kind }: { kind: "pre" | "post" }) {
   const keyRef = useRef(`${kind}-${crypto.randomUUID()}`);
@@ -75,7 +76,7 @@ export function AssessmentFlow({ kind }: { kind: "pre" | "post" }) {
       <section className="assessment-progress"><span>第{current + 1}题，共{attempt.questions.length}题</span><strong>{percent}%</strong><div><i style={{ width: `${percent}%` }} /></div></section>
       <section className="flow-card assessment-card">
         {question.is_safety_critical && <span className="safety-question"><ShieldCheck size={17} />这是一道安全题</span>}
-        <p className="section-kicker">{question.knowledge_point}</p><h1>{question.prompt}</h1>
+        <p className="section-kicker">{question.knowledge_point}</p><h1>{question.prompt}</h1><SpeakButton text={`${question.prompt}。${question.options.map((option) => `${option.id}，${option.label}`).join("。")}`} label="播报题目" />
         <div className="answer-list">{question.options.map((option) => <button key={option.id} type="button" className={answer === option.id ? "answer-choice is-selected" : "answer-choice"} onClick={() => void choose(option.id)} disabled={saving}><span>{option.id.toUpperCase()}</span><strong>{option.label}</strong>{answer === option.id && <Check size={21} />}</button>)}</div>
         {error && <div className="quiz-feedback" role="alert"><RefreshCcw size={18} />{error}</div>}
         <button className="rainbow-button" type="button" onClick={() => void next()} disabled={!answer || saving}><span>{saving ? "正在保存…" : current === attempt.questions.length - 1 ? "提交这次测一测" : "下一题"}</span><ArrowRight size={22} /></button>

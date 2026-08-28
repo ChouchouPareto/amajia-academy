@@ -269,6 +269,12 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .step-pill { display: inline-flex; border-radius: 999px; background: var(--mint); padding: 6px 11px; color: #195f3f; font-size: 13px; font-weight: 800; letter-spacing: .05em; }
 .secondary-action { display: flex; min-height: 50px; align-items: center; justify-content: center; margin-top: 8px; border-radius: 24px; color: var(--ink-soft); font-size: 15px; font-weight: 800; transition: background-color 180ms ease; }
 .secondary-action:hover { background: var(--sky); }
+.speak-control { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 16px; }
+.speak-button { display: inline-flex; min-height: 48px; align-items: center; gap: 8px; border: 1px solid rgb(8 78 114 / 20%); border-radius: 24px; background: var(--sky); padding: 8px 15px; color: var(--ink-soft); font-size: 14px; font-weight: 850; transition: background-color 180ms ease, transform 120ms ease; }
+.speak-button:hover { background: #dceafd; }
+.speak-button:active { transform: scale(.97); }
+.speak-button.is-speaking { background: var(--ink); color: #fff; }
+.speak-message { color: var(--danger); font-size: 13px; line-height: 1.5; }
 
 .processing-card { padding-top: 42px; text-align: center; }
 .orbit-mark { position: relative; display: grid; width: 76px; height: 76px; margin: 0 auto 22px; place-items: center; border-radius: 50%; background: var(--sky); color: var(--ink); }
@@ -680,7 +686,7 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-ai-fab { transition: none; }
+  .home-ai-fab, .speak-button { transition: none; }
 }
 
 .curriculum-intro { padding: 44px 4px 22px; }
