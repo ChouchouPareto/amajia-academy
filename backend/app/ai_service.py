@@ -9,9 +9,10 @@ import httpx
 from pydantic import BaseModel, Field, ValidationError
 
 from .models import CourseVersion, QuestionRequest
+from .prompt_engineering import GROUNDED_HOUSEKEEPING_ANSWER
 
 
-PROMPT_VERSION = "housekeeping-grounded-v1"
+PROMPT_VERSION = GROUNDED_HOUSEKEEPING_ANSWER.version
 
 
 class ModelAnswer(BaseModel):
@@ -78,11 +79,7 @@ def answer_from_published_knowledge(question: QuestionRequest, version: CourseVe
         "steps": version.steps,
         "disclaimer": version.disclaimer,
     }
-    system = (
-        "你是阿嬷学院的AI学习助手。只能依据给定的已审核课程资料回答家政入门问题。"
-        "用简短、口语化中文回答，先给结论，再给最多3个步骤，最后保留安全提醒。"
-        "不得补充资料外的剂量、配比、医疗或就业承诺。只输出JSON：{\"answer\":\"...\"}。"
-    )
+    system = GROUNDED_HOUSEKEEPING_ANSWER.system_template
     try:
         with httpx.Client(timeout=float(os.getenv("AI_TIMEOUT_SECONDS", "12"))) as client:
             response = client.post(

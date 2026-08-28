@@ -13,6 +13,8 @@ from app.ai_service import answer_from_published_knowledge  # noqa: E402
 from app.assessments import ASSESSMENT_VERSION, questions_for, score_answers  # noqa: E402
 from app.assessment_bank_v2 import SOURCE_IDS  # noqa: E402
 from app.models import CourseVersion, QuestionRequest  # noqa: E402
+from app.coach_skills import SKILLS, validate_tool_request  # noqa: E402
+from app.prompt_engineering import GROUNDED_HOUSEKEEPING_ANSWER, get_prompt  # noqa: E402
 
 
 def login_with_invite(client: TestClient, code: str = "INVITE_CODE_REMOVED", name: str = "体验学员"):
@@ -28,6 +30,27 @@ def login_with_invite(client: TestClient, code: str = "INVITE_CODE_REMOVED", nam
     assert response.status_code == 200
     assert response.cookies.get("amajia_session")
     return response.json()
+
+
+def test_prompt_and_skill_engineering_contracts():
+    prompt = get_prompt("grounded_housekeeping_answer")
+    assert prompt.version == "housekeeping-grounded-v2"
+    assert "已审核课程" in prompt.system_template
+    assert "不要把用户引导回基础版页面" in prompt.system_template
+    assert GROUNDED_HOUSEKEEPING_ANSWER.required_context == (
+        "question", "course_title", "summary", "conclusion", "steps", "disclaimer"
+    )
+
+    assert set(SKILLS) == {
+        "answer_housekeeping_question", "teach_course_in_chat", "check_understanding", "review_mistakes"
+    }
+    validate_tool_request("teach_course_in_chat", "save_learning_progress")
+    try:
+        validate_tool_request("answer_housekeeping_question", "save_learning_progress")
+    except ValueError as exc:
+        assert "not allowed" in str(exc)
+    else:
+        raise AssertionError("A read-only answer Skill must not write progress")
 
 
 def test_phase1_learning_flow():
