@@ -5,7 +5,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from .admin_content import AdminContentError, router as admin_content_router
 from .ai_service import answer_from_published_knowledge, model_configured
 from .coach_orchestrator import plan_question_answer
+from .knowledge_retrieval import retrieve_published_course, search_published_knowledge
 from .auth import AuthError, require_current_user, router as auth_router, seed_development_invitations
 from .db import engine, ensure_schema, get_db
 from .assessments import ASSESSMENT_VERSION, public_questions, questions_for, score_answers
@@ -29,6 +30,8 @@ from .schemas import (
     LessonOut,
     LearningOverviewOut,
     LearningReportOut,
+    KnowledgeSearchHitOut,
+    KnowledgeSearchOut,
     ProgressIn,
     QuestionIn,
     QuestionOut,
@@ -189,11 +192,7 @@ def active_course_version(db: Session, course_id: str) -> CourseVersion | None:
 
 
 def published_course_version(db: Session, course_id: str) -> CourseVersion | None:
-    return db.scalar(
-        select(CourseVersion)
-        .where(CourseVersion.course_id == course_id, CourseVersion.review_status == "published")
-        .order_by(CourseVersion.version.desc())
-    )
+    return retrieve_published_course(db, course_id)
 
 
 @app.get("/api/v1/ai/capability", response_model=AiCapabilityOut)
@@ -222,6 +221,33 @@ def ai_capability(_: User = Depends(require_current_user), db: Session = Depends
         published_knowledge_count=published_count,
         label="课程知识模式",
         message="模型暂未启用，将直接整理已审核课程内容，不冒充 AI 生成。",
+    )
+
+
+@app.get("/api/v1/knowledge/search", response_model=KnowledgeSearchOut)
+def search_knowledge(
+    q: str = Query(min_length=2, max_length=120),
+    limit: int = Query(default=5, ge=1, le=10),
+    _: User = Depends(require_current_user),
+    db: Session = Depends(get_db),
+):
+    query = q.strip()
+    hits, mode = search_published_knowledge(db, query, limit=limit)
+    return KnowledgeSearchOut(
+        query=query,
+        retrieval_mode=mode,
+        hits=[KnowledgeSearchHitOut(
+            course_id=hit.chunk.course_id,
+            course_version_id=hit.chunk.course_version_id,
+            version=hit.chunk.version,
+            title=hit.chunk.title,
+            section=hit.chunk.section,
+            content=hit.chunk.content,
+            disclaimer=hit.chunk.disclaimer,
+            score=hit.score,
+            source_refs=hit.chunk.source_refs,
+        ) for hit in hits],
+        message="找到以下已审核知识。" if hits else "暂时没有找到已审核、已发布的相关知识。",
     )
 
 

@@ -17,6 +17,8 @@ from app.coach_skills import SKILLS, validate_tool_request  # noqa: E402
 from app.coach_orchestrator import plan_question_answer  # noqa: E402
 from app.coach_tools import TOOLS  # noqa: E402
 from app.prompt_engineering import GROUNDED_HOUSEKEEPING_ANSWER, get_prompt  # noqa: E402
+from app.db import engine  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
 
 
 def login_with_invite(client: TestClient, code: str = "INVITE_CODE_REMOVED", name: str = "体验学员"):
@@ -82,6 +84,43 @@ def test_parent_orchestrator_plans_read_only_grounded_answer():
         assert "must not enter" in str(exc)
     else:
         raise AssertionError("High-risk questions must not enter the teaching orchestrator")
+
+
+def test_published_knowledge_search_is_retrieval_only(monkeypatch):
+    monkeypatch.delenv("AI_EMBEDDING_MODEL", raising=False)
+    with TestClient(app) as client:
+        login_with_invite(client)
+        with Session(engine) as db:
+            existing = db.query(CourseVersion).filter_by(course_id="kitchen-order", version=9).one_or_none()
+            if existing is None:
+                db.add(CourseVersion(
+                    course_id="kitchen-order",
+                    version=9,
+                    title="厨房清洁基本顺序",
+                    summary="厨房清洁要先收走杂物，再处理高处和台面。",
+                    conclusion="先收杂物，再从高到低，最后清洁地面。",
+                    steps=[
+                        {"title": "收走杂物", "body": "先移开食物和餐具。"},
+                        {"title": "处理油污", "body": "按产品标签处理灶台油污并保持通风。"},
+                    ],
+                    disclaimer="清洁剂按标签使用，不要混用。",
+                    source_refs=[{"name": "内测审核资料", "url": "https://example.com/reviewed-kitchen"}],
+                    review_status="published",
+                ))
+                db.commit()
+
+        response = client.get("/api/v1/knowledge/search", params={"q": "厨房油污怎么处理"})
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["retrieval_mode"] == "structured_lexical"
+        assert payload["hits"]
+        assert payload["hits"][0]["course_id"] == "kitchen-order"
+        assert "油污" in "".join(hit["content"] for hit in payload["hits"])
+        assert "answer" not in payload
+        with Session(engine) as db:
+            created = db.query(CourseVersion).filter_by(course_id="kitchen-order", version=9).one()
+            db.delete(created)
+            db.commit()
 
 
 def test_phase1_learning_flow():

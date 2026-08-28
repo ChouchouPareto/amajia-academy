@@ -118,6 +118,25 @@ class AiCapabilityOut(BaseModel):
     message: str
 
 
+class KnowledgeSearchHitOut(BaseModel):
+    course_id: str
+    course_version_id: int
+    version: int
+    title: str
+    section: str
+    content: str
+    disclaimer: str
+    score: float
+    source_refs: list[dict[str, str]] = Field(default_factory=list)
+
+
+class KnowledgeSearchOut(BaseModel):
+    query: str
+    retrieval_mode: str
+    hits: list[KnowledgeSearchHitOut]
+    message: str
+
+
 class ProgressIn(BaseModel):
     current_step: int = Field(ge=0, le=10)
 

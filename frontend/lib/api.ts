@@ -1,4 +1,4 @@
-import type { AdminCourseVersion, AiCapability, AssessmentAttempt, AssessmentResult, CourseCard, DeleteAccountResult, Invitation, IssuedInvitation, LearningOverview, LearningReport, LearningSession, QuestionRequest, QuizResult, User } from "@/lib/types";
+import type { AdminCourseVersion, AiCapability, AssessmentAttempt, AssessmentResult, CourseCard, DeleteAccountResult, Invitation, IssuedInvitation, KnowledgeSearchResult, LearningOverview, LearningReport, LearningSession, QuestionRequest, QuizResult, User } from "@/lib/types";
 
 type ErrorPayload = {
   detail?: string;
@@ -93,6 +93,7 @@ export async function createQuestion(text: string, idempotencyKey: string): Prom
 
 export function getQuestion(id: number) { return api<QuestionRequest>(`/api/v1/questions/${id}`); }
 export function getAiCapability() { return api<AiCapability>("/api/v1/ai/capability"); }
+export function searchKnowledge(query: string) { return api<KnowledgeSearchResult>(`/api/v1/knowledge/search?q=${encodeURIComponent(query)}`); }
 export function answerQuestion(id: number) { return api<QuestionRequest>(`/api/v1/questions/${id}/answer`, { method: "POST" }); }
 export function confirmQuestion(id: number) { return api<LearningSession>(`/api/v1/questions/${id}/confirm`, { method: "POST" }); }
 export function getLearningSession(id: number) { return api<LearningSession>(`/api/v1/learning/sessions/${id}`); }

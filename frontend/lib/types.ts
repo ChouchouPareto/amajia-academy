@@ -93,6 +93,23 @@ export type AiCapability = {
   message: string;
 };
 
+export type KnowledgeSearchResult = {
+  query: string;
+  retrieval_mode: "structured_lexical" | "hybrid_embedding";
+  message: string;
+  hits: Array<{
+    course_id: string;
+    course_version_id: number;
+    version: number;
+    title: string;
+    section: string;
+    content: string;
+    disclaimer: string;
+    score: number;
+    source_refs: Array<{ name?: string; url?: string }>;
+  }>;
+};
+
 export type CourseCard = {
   id: string;
   code: string;
