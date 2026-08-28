@@ -145,7 +145,7 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .question-card:hover { border-color: rgb(8 48 76 / 28%); box-shadow: var(--shadow-float); }
 .question-card:active { transform: scale(.99); }
 .question-card strong { max-width: 25ch; color: var(--ink); font-size: 21px; letter-spacing: -.02em; line-height: 1.45; }
-.soft-chip { width: fit-content; border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 800; letter-spacing: .04em; }
+.soft-chip { display: inline-flex; width: fit-content; min-height: 34px; align-items: center; gap: 6px; border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }
 .soft-chip--mint { background: var(--mint); color: #195f3f; }
 .soft-chip--sky { background: var(--sky); color: #245a7b; }
 .soft-chip--peach { background: var(--peach); color: #75421f; }

@@ -48,13 +48,13 @@ export function AskForm({ initialQuestion }: { initialQuestion: string }) {
     <main id="main-content" className="flow-shell">
       <header className="flow-topbar">
         <Link className="back-link" href="/"><ArrowLeft aria-hidden="true" size={20} />返回首页</Link>
-        <span className="soft-chip soft-chip--mint"><Bot aria-hidden="true" size={16} />AI 学习助手</span>
+        <span className="soft-chip soft-chip--mint"><Bot aria-hidden="true" size={16} />学习助手</span>
       </header>
 
       <section className="flow-intro">
         <p className="section-kicker">阿嬷 AI 老师</p>
         <h1>你想问什么？</h1>
-        <p>像平时说话一样写下家政问题。系统会先确认理解，再从已审核课程中找答案。</p>
+        <p>像平时说话一样写下家政问题。</p>
       </section>
 
       {error && <div ref={errorRef} className="form-error" role="alert" tabIndex={-1}><strong>这个问题还不能提交</strong><span>{error}</span></div>}
@@ -79,7 +79,7 @@ export function AskForm({ initialQuestion }: { initialQuestion: string }) {
         <div className="field-meta"><span id="question-help">一次只问一个问题</span><span id="question-count">{question.length}/200</span></div>
 
         <button className="rainbow-button" type="submit" disabled={submitting}>
-          <span>{submitting ? "正在理解你的问题…" : "问问 AI 老师"}</span>
+          <span>{submitting ? "正在提交…" : "马上提问"}</span>
           {!submitting && <ArrowRight aria-hidden="true" size={22} />}
         </button>
       </form>
