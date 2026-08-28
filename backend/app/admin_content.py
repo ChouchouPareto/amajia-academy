@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from .auth import hash_secret, session_for_token, utc_now
 from .db import get_db
-from .models import ContentAuditEvent, ContentReview, CourseVersion, Invitation, Lesson, User
+from .models import ContentAuditEvent, ContentReview, CourseVersion, Invitation, Lesson, MediaAsset, User
 from .knowledge_retrieval import deactivate_course_index, rebuild_course_index
 from .schemas import (
     AdminActionIn,
@@ -23,6 +23,9 @@ from .schemas import (
     InvitationAdminOut,
     InvitationCreateIn,
     InvitationIssuedOut,
+    MediaAssetCreateIn,
+    MediaAssetOut,
+    MediaReviewIn,
 )
 from .seed import COURSE_META
 
@@ -55,6 +58,65 @@ def require_admin(
             raise AdminContentError(403, "ADMIN_ROLE_REQUIRED", "当前账号没有课程审核权限")
         raise AdminContentError(401, "ADMIN_UNAUTHORIZED", "请使用管理员邀请码进入")
     return None
+
+
+@router.get("/media-assets", response_model=list[MediaAssetOut], dependencies=[Depends(require_admin)])
+def list_media_assets(course_version_id: int | None = None, db: Session = Depends(get_db)):
+    statement = select(MediaAsset).order_by(MediaAsset.course_version_id, MediaAsset.step_index, MediaAsset.id)
+    if course_version_id is not None:
+        statement = statement.where(MediaAsset.course_version_id == course_version_id)
+    return list(db.scalars(statement))
+
+
+@router.post("/media-assets", response_model=MediaAssetOut, dependencies=[Depends(require_admin)])
+def create_media_asset(payload: MediaAssetCreateIn, db: Session = Depends(get_db)):
+    version = db.get(CourseVersion, payload.course_version_id)
+    if version is None:
+        raise AdminContentError(404, "COURSE_VERSION_NOT_FOUND", "课程版本不存在")
+    if payload.step_index >= len(version.steps or []):
+        raise AdminContentError(422, "MEDIA_STEP_INVALID", "素材绑定的课程步骤不存在")
+    asset = MediaAsset(**payload.model_dump(), review_status="draft")
+    db.add(asset); db.commit(); db.refresh(asset)
+    return asset
+
+
+@router.post("/media-assets/{asset_id}/review", response_model=MediaAssetOut, dependencies=[Depends(require_admin)])
+def review_media_asset(asset_id: int, payload: MediaReviewIn, db: Session = Depends(get_db)):
+    asset = db.get(MediaAsset, asset_id)
+    if asset is None:
+        raise AdminContentError(404, "MEDIA_NOT_FOUND", "媒体素材不存在")
+    asset.review_status = payload.decision
+    asset.reviewer = payload.reviewer
+    asset.reviewed_at = datetime.now(timezone.utc)
+    db.commit(); db.refresh(asset)
+    return asset
+
+
+@router.post("/media-assets/{asset_id}/publish", response_model=MediaAssetOut, dependencies=[Depends(require_admin)])
+def publish_media_asset(asset_id: int, db: Session = Depends(get_db)):
+    asset = db.get(MediaAsset, asset_id)
+    if asset is None:
+        raise AdminContentError(404, "MEDIA_NOT_FOUND", "媒体素材不存在")
+    if asset.review_status != "approved":
+        raise AdminContentError(409, "MEDIA_NOT_APPROVED", "只有审核通过的素材可以发布")
+    version = db.get(CourseVersion, asset.course_version_id)
+    if version is None or version.review_status != "published":
+        raise AdminContentError(409, "COURSE_NOT_PUBLISHED", "素材所属课程版本尚未发布")
+    if asset.license_expires_at and asset.license_expires_at <= datetime.now(timezone.utc):
+        raise AdminContentError(409, "MEDIA_LICENSE_EXPIRED", "素材授权已经过期")
+    asset.review_status = "published"; asset.published_at = datetime.now(timezone.utc); asset.suspended_at = None
+    db.commit(); db.refresh(asset)
+    return asset
+
+
+@router.post("/media-assets/{asset_id}/suspend", response_model=MediaAssetOut, dependencies=[Depends(require_admin)])
+def suspend_media_asset(asset_id: int, db: Session = Depends(get_db)):
+    asset = db.get(MediaAsset, asset_id)
+    if asset is None:
+        raise AdminContentError(404, "MEDIA_NOT_FOUND", "媒体素材不存在")
+    asset.review_status = "suspended"; asset.suspended_at = datetime.now(timezone.utc)
+    db.commit(); db.refresh(asset)
+    return asset
 
 
 def reviews_for(db: Session, version_id: int) -> list[ContentReview]:
@@ -287,6 +349,9 @@ def suspend_version(version_id: int, payload: AdminActionIn, db: Session = Depen
     version.review_status = "suspended"
     version.suspended_at = datetime.now(timezone.utc)
     deactivate_course_index(db, version.course_id)
+    for asset in db.scalars(select(MediaAsset).where(MediaAsset.course_version_id == version.id, MediaAsset.review_status == "published")):
+        asset.review_status = "suspended"
+        asset.suspended_at = datetime.now(timezone.utc)
     add_audit(db, version, "suspend", payload.actor, payload.idempotency_key, {"comment": payload.comment})
     db.commit()
     return serialize_version(db, version)

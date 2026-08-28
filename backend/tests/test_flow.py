@@ -12,12 +12,13 @@ from app.main import app  # noqa: E402
 from app.ai_service import answer_from_published_knowledge  # noqa: E402
 from app.assessments import ASSESSMENT_VERSION, questions_for, score_answers  # noqa: E402
 from app.assessment_bank_v2 import SOURCE_IDS  # noqa: E402
-from app.models import CourseVersion, KnowledgeIndexChunk, QuestionRequest  # noqa: E402
+from app.models import CourseVersion, KnowledgeIndexChunk, MediaAsset, QuestionRequest  # noqa: E402
 from app.coach_skills import SKILLS, validate_tool_request  # noqa: E402
 from app.coach_orchestrator import plan_question_answer  # noqa: E402
 from app.coach_tools import TOOLS  # noqa: E402
 from app.prompt_engineering import GROUNDED_HOUSEKEEPING_ANSWER, get_prompt  # noqa: E402
 from app.knowledge_retrieval import rebuild_course_index  # noqa: E402
+from app.media_service import published_media_for_version  # noqa: E402
 from app.db import engine  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
@@ -126,6 +127,29 @@ def test_published_knowledge_search_is_retrieval_only(monkeypatch):
             db.query(KnowledgeIndexChunk).filter_by(course_version_id=created.id).delete()
             db.delete(created)
             db.commit()
+
+
+def test_media_tool_only_returns_published_licensed_assets():
+    with TestClient(app):
+        with Session(engine) as db:
+            version = CourseVersion(
+                course_id="kitchen-order", version=11, title="厨房媒体测试", summary="测试", conclusion="测试结论",
+                steps=[{"title": "第一步", "body": "测试步骤"}], disclaimer="测试安全提醒", source_refs=[], review_status="published",
+            )
+            db.add(version); db.flush()
+            published = MediaAsset(
+                course_version_id=version.id, step_index=0, media_type="image", title="标准图片", url="https://example.com/step.jpg",
+                alt_text="擦拭厨房台面的标准动作", copyright_owner="测试版权方", license_scope="内部测试与公开教学", review_status="published",
+            )
+            draft = MediaAsset(
+                course_version_id=version.id, step_index=0, media_type="video", title="未审核视频", url="https://example.com/draft.mp4",
+                alt_text="未审核视频", copyright_owner="测试版权方", license_scope="内部测试", review_status="draft",
+            )
+            db.add_all([published, draft]); db.commit()
+            assets = published_media_for_version(db, version.id, 0)
+            assert [asset.title for asset in assets] == ["标准图片"]
+            db.query(MediaAsset).filter_by(course_version_id=version.id).delete()
+            db.delete(version); db.commit()
 
 
 def test_phase1_learning_flow():

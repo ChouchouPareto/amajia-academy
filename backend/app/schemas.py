@@ -137,6 +137,47 @@ class KnowledgeSearchOut(BaseModel):
     message: str
 
 
+class MediaAssetCreateIn(BaseModel):
+    course_version_id: int
+    step_index: int = Field(ge=0, le=20)
+    media_type: str = Field(pattern=r"^(image|video)$")
+    title: str = Field(min_length=2, max_length=180)
+    url: str = Field(min_length=8, max_length=800)
+    thumbnail_url: str | None = Field(default=None, max_length=800)
+    duration_seconds: int | None = Field(default=None, ge=1, le=600)
+    alt_text: str = Field(min_length=4, max_length=300)
+    transcript: str | None = Field(default=None, max_length=5000)
+    copyright_owner: str = Field(min_length=2, max_length=180)
+    license_scope: str = Field(min_length=4, max_length=240)
+    license_expires_at: datetime | None = None
+
+
+class MediaAssetOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    course_version_id: int
+    step_index: int
+    media_type: str
+    title: str
+    url: str
+    thumbnail_url: str | None
+    duration_seconds: int | None
+    alt_text: str
+    transcript: str | None
+    copyright_owner: str
+    license_scope: str
+    license_expires_at: datetime | None
+    review_status: str
+    reviewer: str | None
+    reviewed_at: datetime | None
+    published_at: datetime | None
+
+
+class MediaReviewIn(BaseModel):
+    reviewer: str = Field(min_length=2, max_length=120)
+    decision: str = Field(pattern=r"^(approved|rejected)$")
+
+
 class ProgressIn(BaseModel):
     current_step: int = Field(ge=0, le=10)
 

@@ -1,4 +1,4 @@
-import type { AdminCourseVersion, AiCapability, AssessmentAttempt, AssessmentResult, CourseCard, DeleteAccountResult, Invitation, IssuedInvitation, KnowledgeSearchResult, LearningOverview, LearningReport, LearningSession, QuestionRequest, QuizResult, User } from "@/lib/types";
+import type { AdminCourseVersion, AiCapability, AssessmentAttempt, AssessmentResult, CourseCard, DeleteAccountResult, Invitation, IssuedInvitation, KnowledgeSearchResult, LearningOverview, LearningReport, LearningSession, MediaAsset, QuestionRequest, QuizResult, User } from "@/lib/types";
 
 type ErrorPayload = {
   detail?: string;
@@ -97,6 +97,7 @@ export function searchKnowledge(query: string) { return api<KnowledgeSearchResul
 export function answerQuestion(id: number) { return api<QuestionRequest>(`/api/v1/questions/${id}/answer`, { method: "POST" }); }
 export function confirmQuestion(id: number) { return api<LearningSession>(`/api/v1/questions/${id}/confirm`, { method: "POST" }); }
 export function getLearningSession(id: number) { return api<LearningSession>(`/api/v1/learning/sessions/${id}`); }
+export function getLearningMedia(id: number) { return api<MediaAsset[]>(`/api/v1/learning/sessions/${id}/media`); }
 export function saveLearningProgress(id: number, currentStep: number) {
   return api<LearningSession>(`/api/v1/learning/sessions/${id}/progress`, { method: "POST", body: JSON.stringify({ current_step: currentStep }) });
 }

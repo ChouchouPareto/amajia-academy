@@ -15,6 +15,7 @@ from .admin_content import AdminContentError, router as admin_content_router
 from .ai_service import answer_from_published_knowledge, model_configured
 from .coach_orchestrator import plan_question_answer
 from .knowledge_retrieval import rebuild_course_index, retrieve_published_course, search_published_knowledge
+from .media_service import published_media_for_version
 from .auth import AuthError, require_current_user, router as auth_router, seed_development_invitations
 from .db import engine, ensure_schema, get_db
 from .assessments import ASSESSMENT_VERSION, public_questions, questions_for, score_answers
@@ -32,6 +33,7 @@ from .schemas import (
     LearningReportOut,
     KnowledgeSearchHitOut,
     KnowledgeSearchOut,
+    MediaAssetOut,
     ProgressIn,
     QuestionIn,
     QuestionOut,
@@ -418,6 +420,17 @@ def get_session(session_id: int, user: User = Depends(require_current_user), db:
         return error_response(404, "SESSION_NOT_FOUND", "没有找到学习记录")
     ensure_owner(user, session.user_id)
     return serialize_session(db, session)
+
+
+@app.get("/api/v1/learning/sessions/{session_id}/media", response_model=list[MediaAssetOut])
+def get_session_media(session_id: int, step_index: int | None = None, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    session = db.get(LearningSession, session_id)
+    if session is None:
+        return error_response(404, "SESSION_NOT_FOUND", "没有找到学习记录")
+    ensure_owner(user, session.user_id)
+    if session.course_version_id is None:
+        return []
+    return published_media_for_version(db, session.course_version_id, step_index)
 
 
 @app.post("/api/v1/learning/sessions/{session_id}/progress", response_model=SessionOut)

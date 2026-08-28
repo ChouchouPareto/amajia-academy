@@ -1068,6 +1068,11 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .coach-answer-options button.is-selected { border-color: #3d8960; background: var(--mint); box-shadow: 0 0 0 2px rgb(61 137 96 / 10%); }
 .coach-complete-mark { display: grid; width: 64px; height: 64px; place-items: center; border-radius: 50%; background: var(--mint); color: #256b4a; }
 .coach-lesson-complete > p:not(.coach-kicker) { color: #425763; line-height: 1.75; }
+.coach-media-card { overflow: hidden; margin: 18px 0 0; border: 1px solid var(--line); border-radius: 20px; background: #f6f8f7; }
+.coach-media-card img, .coach-media-card video { display: block; width: 100%; max-height: 360px; object-fit: cover; background: #e9eeeb; }
+.coach-media-card figcaption { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 13px; }
+.coach-media-card figcaption strong { color: var(--ink); font-size: 13px; }
+.coach-media-card figcaption span { color: var(--helper); font-size: 10px; }
 
 @media (min-width: 720px) {
   .mode-options { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }

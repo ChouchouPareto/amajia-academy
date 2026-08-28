@@ -119,6 +119,30 @@ class KnowledgeIndexChunk(Base):
     indexed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class MediaAsset(Base):
+    __tablename__ = "media_assets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    course_version_id: Mapped[int] = mapped_column(ForeignKey("course_versions.id"), index=True)
+    step_index: Mapped[int] = mapped_column(Integer, index=True)
+    media_type: Mapped[str] = mapped_column(String(16), index=True)
+    title: Mapped[str] = mapped_column(String(180))
+    url: Mapped[str] = mapped_column(String(800))
+    thumbnail_url: Mapped[str | None] = mapped_column(String(800), nullable=True)
+    duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    alt_text: Mapped[str] = mapped_column(String(300))
+    transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
+    copyright_owner: Mapped[str] = mapped_column(String(180))
+    license_scope: Mapped[str] = mapped_column(String(240))
+    license_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    reviewer: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class ContentReview(Base):
     __tablename__ = "content_reviews"
 

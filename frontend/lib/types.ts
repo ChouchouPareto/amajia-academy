@@ -60,6 +60,26 @@ export type LearningSession = {
   completed_at: string | null;
 };
 
+export type MediaAsset = {
+  id: number;
+  course_version_id: number;
+  step_index: number;
+  media_type: "image" | "video";
+  title: string;
+  url: string;
+  thumbnail_url: string | null;
+  duration_seconds: number | null;
+  alt_text: string;
+  transcript: string | null;
+  copyright_owner: string;
+  license_scope: string;
+  license_expires_at: string | null;
+  review_status: "published";
+  reviewer: string | null;
+  reviewed_at: string | null;
+  published_at: string | null;
+};
+
 export type QuizResult = {
   correct: boolean;
   message: string;
