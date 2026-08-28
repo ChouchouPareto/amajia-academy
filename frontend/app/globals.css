@@ -575,11 +575,11 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .academy-welcome .academy-lead { margin: 0; color: #455861; font-size: 16px; font-weight: 650; line-height: 1.62; }
 .home-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 .academy-learning-summary + .home-controls { margin-top: 24px; }
-.home-controls > button, .home-controls > a { display: grid; min-width: 0; min-height: 70px; grid-template-columns: 24px minmax(0, 1fr); align-content: center; align-items: center; gap: 0 7px; border: 1px solid rgb(8 48 76 / 9%); border-radius: 19px; background: #fff; padding: 9px; color: var(--ink); text-align: left; box-shadow: var(--shadow-soft); }
+.home-controls > button, .home-controls > a { display: grid; min-width: 0; min-height: 70px; grid-template-columns: 22px minmax(0, 1fr); align-content: center; align-items: center; gap: 0 5px; border: 1px solid rgb(8 48 76 / 9%); border-radius: 19px; background: #fff; padding: 8px 7px; color: var(--ink); text-align: left; box-shadow: var(--shadow-soft); }
 .home-controls > button { width: 100%; }
 .home-controls svg { grid-row: 1 / 3; color: var(--ink-soft); }
 .home-controls span, .home-controls small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.home-controls span { font-size: 14px; font-weight: 850; }
+.home-controls span { overflow: visible; text-overflow: clip; font-size: clamp(12px, 2.2vw, 14px); font-weight: 850; letter-spacing: -.02em; }
 .home-controls small { color: var(--helper); font-size: 10px; }
 .home-controls button[aria-pressed="true"] { background: var(--mint); border-color: rgb(25 95 63 / 18%); }
 .home-modal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; align-items: end; background: rgb(8 30 44 / 42%); padding: 16px; }
@@ -674,6 +674,7 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 
 .large-text body { font-size: 21px; }
 .large-text .academy-lead, .large-text .academy-primary-card > p:not(.section-kicker), .large-text .career-intro > p:last-child { font-size: 19px; }
+.large-text .home-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .large-text .home-controls span, .large-text .academy-shortcuts strong { font-size: 17px; }
 .large-text .home-controls small, .large-text .academy-shortcuts small, .large-text .career-stage-card p, .large-text .career-stage-card strong { font-size: 15px; white-space: normal; }
 .large-text .academy-shortcuts small { overflow: visible; text-overflow: clip; }

@@ -36,7 +36,7 @@ export function HomeControls() {
       <section className="home-controls" aria-label="常用功能">
         <button type="button" onClick={() => setPanel("course")}><BookOpenCheck aria-hidden="true" size={21} /><span>课程</span><small>家政入门</small></button>
         <button type="button" aria-pressed={largeText} onClick={toggleLargeText}><Text aria-hidden="true" size={21} /><span>大字</span><small>{largeText ? "已开启" : "标准"}</small></button>
-        <Link href="/search"><Search aria-hidden="true" size={21} /><span>AI 搜索</span><small>查家政知识</small></Link>
+        <Link href="/search"><Search aria-hidden="true" size={21} /><span>AI搜索</span><small>查家政知识</small></Link>
         <Link href="/account"><UserRound aria-hidden="true" size={21} /><span>账号</span><small>管理资料</small></Link>
       </section>
       {panel && <div className="home-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPanel(null); }}>
