@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .admin_content import AdminContentError, router as admin_content_router
+from .ai_service import answer_from_published_knowledge, model_configured
 from .auth import AuthError, require_current_user, router as auth_router, seed_development_invitations
 from .db import engine, ensure_schema, get_db
 from .assessments import public_questions, questions_for, score_answers
@@ -21,6 +22,7 @@ from .schemas import (
     AssessmentAttemptOut,
     AssessmentStartIn,
     AssessmentSubmitOut,
+    AiCapabilityOut,
     CourseCardOut,
     CourseVersionOut,
     LessonOut,
@@ -140,6 +142,13 @@ def serialize_question(question: QuestionRequest) -> QuestionOut:
         risk_level=question.risk_level,
         message=question.message,
         next_action=question.next_action,
+        answer=question.answer,
+        answer_mode=question.answer_mode,
+        knowledge_refs=question.knowledge_refs or [],
+        model_provider=question.model_provider,
+        model_name=question.model_name,
+        prompt_version=question.prompt_version,
+        latency_ms=question.latency_ms,
     )
 
 
@@ -175,6 +184,43 @@ def active_course_version(db: Session, course_id: str) -> CourseVersion | None:
         select(CourseVersion)
         .where(CourseVersion.course_id == course_id)
         .order_by(CourseVersion.version.asc())
+    )
+
+
+def published_course_version(db: Session, course_id: str) -> CourseVersion | None:
+    return db.scalar(
+        select(CourseVersion)
+        .where(CourseVersion.course_id == course_id, CourseVersion.review_status == "published")
+        .order_by(CourseVersion.version.desc())
+    )
+
+
+@app.get("/api/v1/ai/capability", response_model=AiCapabilityOut)
+def ai_capability(_: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    published_count = len(list(db.scalars(select(CourseVersion).where(CourseVersion.review_status == "published"))))
+    configured = model_configured()
+    if published_count == 0:
+        return AiCapabilityOut(
+            mode="review_required",
+            model_configured=configured,
+            published_knowledge_count=0,
+            label="受控准备中",
+            message="课程仍待专业审核。AI 暂不自由生成，只帮助识别问题并推荐学习内容。",
+        )
+    if configured:
+        return AiCapabilityOut(
+            mode="model_ready",
+            model_configured=True,
+            published_knowledge_count=published_count,
+            label="AI 回答已启用",
+            message="只根据已审核家政课程回答，并展示课程来源。",
+        )
+    return AiCapabilityOut(
+        mode="knowledge_only",
+        model_configured=False,
+        published_knowledge_count=published_count,
+        label="课程知识模式",
+        message="模型暂未启用，将直接整理已审核课程内容，不冒充 AI 生成。",
     )
 
 
@@ -243,13 +289,49 @@ def get_question(question_id: int, user: User = Depends(require_current_user), d
     return serialize_question(question)
 
 
+@app.post("/api/v1/questions/{question_id}/answer", response_model=QuestionOut)
+def answer_question(question_id: int, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    question = db.get(QuestionRequest, question_id)
+    if question is None:
+        return error_response(404, "QUESTION_NOT_FOUND", "没有找到这次问题")
+    ensure_owner(user, question.user_id)
+    if question.status in ("blocked", "no_match") or question.lesson_id is None:
+        return serialize_question(question)
+    if question.answer_mode is not None:
+        return serialize_question(question)
+
+    version = published_course_version(db, question.lesson_id)
+    if version is None:
+        question.status = "knowledge_unavailable"
+        question.answer_mode = "unavailable"
+        question.message = "匹配到相关家政课程，但课程还没有完成专业审核，所以 AI 暂不生成答案。"
+        question.next_action = "你可以先体验候选课程；正式发布前，回答不会作为专业结论。"
+        question.knowledge_refs = []
+    else:
+        result = answer_from_published_knowledge(question, version)
+        question.status = "answered"
+        question.answer = result.answer
+        question.answer_mode = result.mode
+        question.knowledge_refs = result.refs
+        question.model_provider = result.provider
+        question.model_name = result.model
+        question.prompt_version = result.prompt_version
+        question.latency_ms = result.latency_ms
+        question.answered_at = datetime.now(timezone.utc)
+        question.message = "回答仅依据下方已审核课程资料。"
+        question.next_action = "继续课程可以看到完整步骤并完成一道理解检查。"
+    db.commit()
+    db.refresh(question)
+    return serialize_question(question)
+
+
 @app.post("/api/v1/questions/{question_id}/confirm", response_model=SessionOut)
 def confirm_question(question_id: int, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
     question = db.get(QuestionRequest, question_id)
     if question is None:
         return error_response(404, "QUESTION_NOT_FOUND", "没有找到这次问题")
     ensure_owner(user, question.user_id)
-    if question.lesson_id is None or question.status not in ("waiting_confirmation", "confirmed"):
+    if question.lesson_id is None or question.status not in ("waiting_confirmation", "answered", "knowledge_unavailable", "confirmed"):
         return error_response(409, "QUESTION_NOT_CONFIRMABLE", "这个问题不能进入普通学习")
     session = db.scalar(
         select(LearningSession).where(

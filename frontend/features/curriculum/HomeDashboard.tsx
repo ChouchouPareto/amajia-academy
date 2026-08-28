@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { AppError, getLearningOverview } from "@/lib/api";
 import type { LearningOverview } from "@/lib/types";
+import { HomeComposer } from "@/features/question/HomeComposer";
 
 const actions = {
   start_pre_assessment: { href: "/assessment/pre", eyebrow: "先了解现在的基础", title: "开始家政入门测一测", copy: "6道小题，不计考试，只用来推荐学习顺序。", button: "开始测一测" },
@@ -40,6 +41,8 @@ export function HomeDashboard() {
         <h2>从家政入门，学会一门新本事。</h2>
         <p className="academy-lead">不用怕看不懂。我们把家政基础知识拆成小步骤，每次只学一件事。</p>
       </section>
+
+      <HomeComposer />
 
       <section className="academy-primary-card" aria-busy={!overview && !error}>
         {error ? (

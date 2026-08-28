@@ -101,6 +101,21 @@ class QuestionOut(BaseModel):
     risk_level: str
     message: str | None
     next_action: str | None
+    answer: str | None
+    answer_mode: str | None
+    knowledge_refs: list[dict[str, object]] = Field(default_factory=list)
+    model_provider: str | None
+    model_name: str | None
+    prompt_version: str | None
+    latency_ms: int | None
+
+
+class AiCapabilityOut(BaseModel):
+    mode: str
+    model_configured: bool
+    published_knowledge_count: int
+    label: str
+    message: str
 
 
 class ProgressIn(BaseModel):

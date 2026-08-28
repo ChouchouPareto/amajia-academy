@@ -1,15 +1,15 @@
 "use client";
 
-import { AlertTriangle, ArrowLeft, ArrowRight, BookOpenCheck, Check, CheckCircle2, CircleHelp, FileCheck2, RefreshCcw, ShieldAlert, ShieldCheck, Sparkles, WifiOff } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, BookOpenCheck, Bot, Check, CheckCircle2, CircleHelp, FileCheck2, RefreshCcw, ShieldAlert, ShieldCheck, Sparkles, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { AppError, confirmQuestion, getLearningSession, getQuestion, saveLearningProgress, submitQuiz } from "@/lib/api";
+import { answerQuestion, AppError, confirmQuestion, getLearningSession, getQuestion, saveLearningProgress, submitQuiz } from "@/lib/api";
 import type { LearningSession, Lesson, QuestionRequest } from "@/lib/types";
 
-type View = "recovering" | "confirm" | "processing" | "conclusion" | "step" | "quiz" | "complete" | "blocked" | "no_match" | "failed";
-const processingMessages = ["正在帮你判断这个问题", "正在查找可靠的学习内容", "正在整理成容易学的步骤"];
+type View = "recovering" | "confirm" | "processing" | "ai_answer" | "conclusion" | "step" | "quiz" | "complete" | "blocked" | "no_match" | "failed";
+const processingMessages = ["正在进行安全检查", "正在查找已审核课程", "正在整理回答和来源"];
 
 export function LearningFlow({ sessionId }: { sessionId: string }) {
   const router = useRouter();
@@ -39,6 +39,7 @@ export function LearningFlow({ sessionId }: { sessionId: string }) {
           setQuestionRequest(request);
           if (request.status === "blocked") setView("blocked");
           else if (request.status === "no_match") setView("no_match");
+          else if (request.status === "answered" || request.status === "knowledge_unavailable") setView("ai_answer");
           else if (request.status === "confirmed") {
             const session = await confirmQuestion(request.id);
             if (!cancelled) router.replace(`/learn/${session.id}`);
@@ -70,9 +71,9 @@ export function LearningFlow({ sessionId }: { sessionId: string }) {
     const timerOne = window.setTimeout(() => setProcessingStep(1), 450);
     const timerTwo = window.setTimeout(() => setProcessingStep(2), 900);
     try {
-      const session = await confirmQuestion(questionRequest.id);
-      setLearningSession(session);
-      window.setTimeout(() => router.replace(`/learn/${session.id}`), 1050);
+      const result = await answerQuestion(questionRequest.id);
+      setQuestionRequest(result);
+      window.setTimeout(() => setView("ai_answer"), 1050);
     } catch (caught) {
       window.clearTimeout(timerOne);
       window.clearTimeout(timerTwo);
@@ -112,9 +113,10 @@ export function LearningFlow({ sessionId }: { sessionId: string }) {
 
   return (
     <main id="main-content" className="flow-shell">
-      <header className="flow-topbar"><Link className="back-link" href={view === "confirm" ? `/ask?example=${encodeURIComponent(questionRequest?.original_text ?? "")}` : "/housekeeping"}><ArrowLeft aria-hidden="true" size={20} />{view === "confirm" ? "修改问题" : "返回学习路径"}</Link><span className="prototype-badge"><Sparkles aria-hidden="true" size={15} />家政入门</span></header>
+      <header className="flow-topbar"><Link className="back-link" href={view === "confirm" ? `/ask?example=${encodeURIComponent(questionRequest?.original_text ?? "")}` : "/housekeeping"}><ArrowLeft aria-hidden="true" size={20} />{view === "confirm" ? "修改问题" : "返回学习路径"}</Link><span className="prototype-badge"><Bot aria-hidden="true" size={15} />阿嬷 AI 老师</span></header>
       {view === "confirm" && questionRequest && <ConfirmView understood={questionRequest.understood_text} onConfirm={startProcessing} />}
       {view === "processing" && <ProcessingView step={processingStep} />}
+      {view === "ai_answer" && questionRequest && <AiAnswerView result={questionRequest} onContinue={async () => { const session = await confirmQuestion(questionRequest.id); router.push(`/learn/${session.id}`); }} />}
       {view === "conclusion" && lesson && <ConclusionView lesson={lesson} onContinue={() => setView("step")} />}
       {view === "step" && lesson && <StepView lesson={lesson} currentStep={currentStep} progress={progress} saving={saving} feedback={feedback} onNext={nextStep} />}
       {view === "quiz" && lesson && <QuizView lesson={lesson} answer={answer} feedback={feedback} saving={saving} onAnswer={(value) => { setAnswer(value); setFeedback(""); }} onSubmit={checkAnswer} />}
@@ -133,6 +135,23 @@ function ConfirmView({ understood, onConfirm }: { understood: string; onConfirm:
 
 function ProcessingView({ step }: { step: number }) {
   return <section className="processing-card" aria-live="polite" aria-busy="true"><div className="orbit-mark" aria-hidden="true"><BookOpenCheck size={32} /></div><p className="section-kicker">请稍等一下</p><h1>{processingMessages[step]}</h1><div className="process-list">{processingMessages.map((message, index) => <div key={message} className={index <= step ? "process-item is-done" : "process-item"}>{index < step ? <CheckCircle2 aria-hidden="true" size={21} /> : <span aria-hidden="true">{index + 1}</span>}<strong>{message}</strong></div>)}</div><p className="processing-note">处理完成前不会展示未经检查的半段答案。</p></section>;
+}
+
+function AiAnswerView({ result, onContinue }: { result: QuestionRequest; onContinue: () => Promise<void> }) {
+  const [starting, setStarting] = useState(false);
+  const isModel = result.answer_mode === "model";
+  const available = Boolean(result.answer);
+  async function continueLearning() { setStarting(true); try { await onContinue(); } finally { setStarting(false); } }
+  return <section className="flow-card ai-answer-card">
+    <div className={`ai-answer-mode ${isModel ? "is-model" : ""}`}><Sparkles aria-hidden="true" size={17} /><strong>{isModel ? "AI 生成回答" : available ? "已审核课程整理" : "AI 暂停生成"}</strong></div>
+    <p className="section-kicker">{available ? "先看简明回答" : "匹配到了相关课程"}</p>
+    <h1>{available ? "阿嬷 AI 老师这样回答" : "这次先不自由回答"}</h1>
+    {available ? <p className="ai-answer-copy">{result.answer}</p> : <div className="ai-unavailable"><ShieldCheck aria-hidden="true" size={23} /><div><strong>课程还在等待专业审核</strong><p>{result.message}</p></div></div>}
+    {result.knowledge_refs.length > 0 && <div className="ai-sources"><strong>回答依据</strong>{result.knowledge_refs.map((ref, index) => <div key={`${ref.type}-${index}`}><FileCheck2 aria-hidden="true" size={18} /><span>{ref.type === "course" ? `${ref.title} · 第${ref.version}版` : ref.name}</span></div>)}</div>}
+    <p className="ai-trace-note">{isModel ? `模型：${result.model_name ?? "已配置模型"} · ` : ""}回答方式和课程版本已记录，便于内测追溯。</p>
+    <button className="rainbow-button" type="button" onClick={continueLearning} disabled={starting}><span>{starting ? "正在打开课程…" : "跟着这门课程继续学"}</span><ArrowRight aria-hidden="true" size={22} /></button>
+    <Link className="secondary-action" href="/ask">再问一个问题</Link>
+  </section>;
 }
 
 function ConclusionView({ lesson, onContinue }: { lesson: Lesson; onContinue: () => void }) {

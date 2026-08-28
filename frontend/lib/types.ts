@@ -71,11 +71,26 @@ export type QuestionRequest = {
   user_id: number;
   original_text: string;
   understood_text: string;
-  status: "waiting_confirmation" | "confirmed" | "blocked" | "no_match";
+  status: "waiting_confirmation" | "answered" | "knowledge_unavailable" | "confirmed" | "blocked" | "no_match";
   lesson_id: string | null;
   risk_level: string;
   message: string | null;
   next_action: string | null;
+  answer: string | null;
+  answer_mode: "model" | "knowledge_fallback" | "unavailable" | null;
+  knowledge_refs: Array<{ type: "course" | "source"; title?: string; name?: string; url?: string; version?: number }>;
+  model_provider: string | null;
+  model_name: string | null;
+  prompt_version: string | null;
+  latency_ms: number | null;
+};
+
+export type AiCapability = {
+  mode: "review_required" | "model_ready" | "knowledge_only";
+  model_configured: boolean;
+  published_knowledge_count: number;
+  label: string;
+  message: string;
 };
 
 export type CourseCard = {

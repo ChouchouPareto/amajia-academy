@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Lightbulb, LockKeyhole, PencilLine } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bot, Lightbulb, LockKeyhole, PencilLine, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useRef, useState } from "react";
@@ -48,13 +48,13 @@ export function AskForm({ initialQuestion }: { initialQuestion: string }) {
     <main id="main-content" className="flow-shell">
       <header className="flow-topbar">
         <Link className="back-link" href="/"><ArrowLeft aria-hidden="true" size={20} />返回首页</Link>
-        <span className="soft-chip soft-chip--mint">家政问题</span>
+        <span className="soft-chip soft-chip--mint"><Bot aria-hidden="true" size={16} />AI 学习助手</span>
       </header>
 
       <section className="flow-intro">
-        <p className="section-kicker">先说一件具体的事</p>
-        <h1>你想学什么？</h1>
-        <p>像平时说话一样写下家政问题就可以，不用想专业词。</p>
+        <p className="section-kicker">阿嬷 AI 老师</p>
+        <h1>你想问什么？</h1>
+        <p>像平时说话一样写下家政问题。系统会先确认理解，再从已审核课程中找答案。</p>
       </section>
 
       {error && <div ref={errorRef} className="form-error" role="alert" tabIndex={-1}><strong>这个问题还不能提交</strong><span>{error}</span></div>}
@@ -79,7 +79,7 @@ export function AskForm({ initialQuestion }: { initialQuestion: string }) {
         <div className="field-meta"><span id="question-help">一次只问一个问题</span><span id="question-count">{question.length}/200</span></div>
 
         <button className="rainbow-button" type="submit" disabled={submitting}>
-          <span>{submitting ? "正在打开确认页…" : "帮我看看这个问题"}</span>
+          <span>{submitting ? "正在理解你的问题…" : "问问 AI 老师"}</span>
           {!submitting && <ArrowRight aria-hidden="true" size={22} />}
         </button>
       </form>
@@ -91,6 +91,7 @@ export function AskForm({ initialQuestion }: { initialQuestion: string }) {
         </div>
       </section>
 
+      <p className="privacy-card"><ShieldCheck aria-hidden="true" size={18} />AI 只使用已审核课程；找不到可靠内容时不会自由编答案。</p>
       <p className="privacy-card"><LockKeyhole aria-hidden="true" size={18} />请不要填写真实姓名、住址、电话或孩子姓名。</p>
     </main>
   );

@@ -9,6 +9,8 @@ os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB}"
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402
+from app.ai_service import answer_from_published_knowledge  # noqa: E402
+from app.models import CourseVersion, QuestionRequest  # noqa: E402
 
 
 def login_with_invite(client: TestClient, code: str = "INVITE_CODE_REMOVED", name: str = "体验学员"):
@@ -116,6 +118,71 @@ def test_question_routing_confirmation_and_idempotency():
             json={"user_id": user["id"], "text": "怎样学习高等数学", "idempotency_key": "test-no-match-question"},
         ).json()
         assert no_match["status"] == "no_match"
+
+
+def test_controlled_ai_stops_before_unreviewed_knowledge():
+    with TestClient(app) as client:
+        user = login_with_invite(client)
+        capability = client.get("/api/v1/ai/capability")
+        assert capability.status_code == 200
+        assert capability.json()["mode"] == "review_required"
+        assert capability.json()["published_knowledge_count"] == 0
+
+        question = client.post(
+            "/api/v1/questions",
+            json={"user_id": user["id"], "text": "厨房油污应该先擦哪里？", "idempotency_key": "test-ai-review-boundary"},
+        ).json()
+        answered = client.post(f"/api/v1/questions/{question['id']}/answer")
+        assert answered.status_code == 200
+        payload = answered.json()
+        assert payload["status"] == "knowledge_unavailable"
+        assert payload["answer_mode"] == "unavailable"
+        assert payload["answer"] is None
+        assert payload["knowledge_refs"] == []
+        continued = client.post(f"/api/v1/questions/{question['id']}/confirm")
+        assert continued.status_code == 200
+        assert continued.json()["lesson_id"] == "kitchen-order"
+
+        blocked = client.post(
+            "/api/v1/questions",
+            json={"user_id": user["id"], "text": "误食清洁剂怎么急救", "idempotency_key": "test-ai-l3-boundary"},
+        ).json()
+        blocked_answer = client.post(f"/api/v1/questions/{blocked['id']}/answer").json()
+        assert blocked_answer["status"] == "blocked"
+        assert blocked_answer["answer_mode"] is None
+
+
+def test_published_knowledge_has_explicit_non_model_fallback(monkeypatch):
+    monkeypatch.delenv("AI_API_BASE", raising=False)
+    monkeypatch.delenv("AI_API_KEY", raising=False)
+    monkeypatch.delenv("AI_MODEL", raising=False)
+    version = CourseVersion(
+        id=99,
+        course_id="kitchen-order",
+        version=2,
+        title="厨房清洁基本顺序",
+        summary="厨房基础清洁",
+        conclusion="先收走杂物，再从高处到低处清洁。",
+        steps=[{"title": "腾空台面", "body": "先移开食物和餐具。"}],
+        disclaimer="清洁剂按标签使用并保持通风。",
+        source_refs=[{"name": "审核资料", "url": "https://example.com/source"}],
+        review_status="published",
+    )
+    question = QuestionRequest(
+        id=88,
+        user_id=1,
+        idempotency_key="unit-fallback",
+        original_text="厨房油污先擦哪里？",
+        understood_text="厨房清洁",
+        status="waiting_confirmation",
+        lesson_id="kitchen-order",
+        risk_level="L0",
+    )
+    result = answer_from_published_knowledge(question, version)
+    assert result.mode == "knowledge_fallback"
+    assert result.model is None
+    assert "从高处到低处" in result.answer
+    assert result.refs[0]["course_version_id"] == 99
 
 
 def test_housekeeping_assessment_and_report_flow():

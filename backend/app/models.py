@@ -155,6 +155,14 @@ class QuestionRequest(Base):
     risk_level: Mapped[str] = mapped_column(String(8), default="L0")
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     next_action: Mapped[str | None] = mapped_column(Text, nullable=True)
+    answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    answer_mode: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    knowledge_refs: Mapped[list[dict[str, object]]] = mapped_column(JSON, default=list)
+    model_provider: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    model_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    prompt_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 

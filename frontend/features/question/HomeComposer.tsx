@@ -1,23 +1,32 @@
 "use client";
 
-import { ArrowUp, Image as ImageIcon, Paperclip, Plus, ScanLine, X } from "lucide-react";
-import Link from "next/link";
+import { ArrowRight, Bot, ShieldCheck, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useRef, useState } from "react";
-import { AppError, createQuestion } from "@/lib/api";
+import { FormEvent, useEffect, useRef, useState } from "react";
+
+import { AppError, createQuestion, getAiCapability } from "@/lib/api";
+import type { AiCapability } from "@/lib/types";
+
+const examples = ["厨房油污先擦哪里？", "洗衣前先检查什么？"];
 
 export function HomeComposer() {
   const router = useRouter();
   const [question, setQuestion] = useState("");
-  const [expanded, setExpanded] = useState(false);
+  const [capability, setCapability] = useState<AiCapability | null>(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const idempotencyRef = useRef<string | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    getAiCapability().then((value) => { if (!cancelled) setCapability(value); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const value = question.trim();
-    if (value.length < 4) { setError("请再多说一点，让我知道你具体想学什么。"); return; }
+    if (value.length < 4) { setError("请再多说一点，让 AI 老师知道你具体想学什么。"); return; }
     setSubmitting(true);
     try {
       idempotencyRef.current ??= crypto.randomUUID();
@@ -30,24 +39,20 @@ export function HomeComposer() {
   }
 
   return (
-    <div className="composer-dock">
-      <div className={expanded ? "attachment-tray is-open" : "attachment-tray"} aria-hidden={!expanded}>
-        <ComposerLink href="/ask" label="拍照描述" icon={ScanLine} />
-        <ComposerLink href="/ask" label="图片问题" icon={ImageIcon} />
-        <ComposerLink href="/ask" label="文字提问" icon={Paperclip} />
+    <section className="ai-teacher-card" aria-labelledby="ai-teacher-title">
+      <div className="ai-teacher-heading">
+        <span className="ai-teacher-icon"><Bot aria-hidden="true" size={25} /></span>
+        <div><p><Sparkles aria-hidden="true" size={15} />AI 学习助手</p><h2 id="ai-teacher-title">问问阿嬷 AI 老师</h2></div>
+        <span className={`ai-status ai-status--${capability?.mode ?? "loading"}`} role="status">{capability?.label ?? "正在检查"}</span>
       </div>
-      {error && <p className="composer-error" role="alert">{error}</p>}
-      <form className="home-composer" onSubmit={submit}>
-        <button className="composer-round-button" type="button" aria-label={expanded ? "收起更多方式" : "展开更多方式"} aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>{expanded ? <X aria-hidden="true" size={23} /> : <Plus aria-hidden="true" size={24} />}</button>
-        <label className="sr-only" htmlFor="home-question">输入想学的问题</label>
-        <input id="home-question" value={question} onChange={(event) => { setQuestion(event.target.value); idempotencyRef.current = null; if (error) setError(""); }} placeholder={submitting ? "正在帮你看…" : "输入你想学的问题"} maxLength={200} autoComplete="off" disabled={submitting} />
-        <button className="composer-send-button" type="submit" aria-label="提交问题" disabled={!question.trim() || submitting}><ArrowUp aria-hidden="true" size={22} /></button>
+      <p className="ai-teacher-copy">{capability?.message ?? "正在检查可用的审核课程与 AI 能力。"}</p>
+      {error && <p className="ai-inline-error" role="alert">{error}</p>}
+      <form className="ai-teacher-form" onSubmit={submit}>
+        <label htmlFor="home-ai-question">你想问的家政问题</label>
+        <div><input id="home-ai-question" value={question} onChange={(event) => { setQuestion(event.target.value); setError(""); idempotencyRef.current = null; }} placeholder="例如：清洁剂为什么不能混用？" maxLength={200} disabled={submitting} /><button type="submit" disabled={submitting || question.trim().length < 4}><span>{submitting ? "正在理解" : "问 AI 老师"}</span><ArrowRight aria-hidden="true" size={20} /></button></div>
       </form>
-      <span className="composer-helper">一次只问一件事 · 请勿填写个人隐私</span>
-    </div>
+      <div className="ai-examples" aria-label="示例问题">{examples.map((example) => <button type="button" key={example} onClick={() => setQuestion(example)}>{example}</button>)}</div>
+      <p className="ai-boundary"><ShieldCheck aria-hidden="true" size={17} />只依据已审核课程回答；没有可靠内容时会明确停下。</p>
+    </section>
   );
-}
-
-function ComposerLink({ href, label, icon: Icon }: { href: string; label: string; icon: typeof ScanLine }) {
-  return <Link href={href}><span><Icon aria-hidden="true" size={21} /></span>{label}</Link>;
 }
