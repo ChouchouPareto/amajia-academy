@@ -244,6 +244,34 @@ def test_question_routing_confirmation_and_idempotency():
         assert no_match["status"] == "no_match"
 
 
+def test_coach_conversation_history_and_question_linking():
+    with TestClient(app) as client:
+        user = login_with_invite(client)
+        created = client.post("/api/v1/coach/conversations")
+        assert created.status_code == 200
+        conversation = created.json()
+        assert conversation["title"] == "新的陪学对话"
+
+        question = client.post(
+            "/api/v1/questions",
+            json={
+                "user_id": user["id"],
+                "text": "洗衣前应该先检查什么？",
+                "idempotency_key": "coach-history-link-test",
+                "conversation_id": conversation["id"],
+            },
+        )
+        assert question.status_code == 200
+        assert question.json()["conversation_id"] == conversation["id"]
+
+        history = client.get(f"/api/v1/coach/conversations/{conversation['id']}/questions")
+        assert history.status_code == 200
+        assert [item["id"] for item in history.json()] == [question.json()["id"]]
+        recent = client.get("/api/v1/coach/conversations").json()
+        assert recent[0]["id"] == conversation["id"]
+        assert recent[0]["title"] == "洗衣前应该先检查什么？"
+
+
 def test_controlled_ai_stops_before_unreviewed_knowledge():
     with TestClient(app) as client:
         user = login_with_invite(client)

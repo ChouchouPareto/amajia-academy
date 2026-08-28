@@ -6,8 +6,8 @@ import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { SpeakButton } from "@/components/SpeakButton";
-import { answerQuestion, AppError, confirmQuestion, createQuestion, getLearningMedia, saveLearningProgress, submitQuiz } from "@/lib/api";
-import type { LearningSession, MediaAsset, QuestionRequest } from "@/lib/types";
+import { answerQuestion, AppError, confirmQuestion, createCoachConversation, createQuestion, getCoachConversationQuestions, getCoachConversations, getLearningMedia, saveLearningProgress, submitQuiz } from "@/lib/api";
+import type { CoachConversation, LearningSession, MediaAsset, QuestionRequest } from "@/lib/types";
 
 const examples = ["厨房油污，应该先擦哪里？", "清洁剂为什么不能随便混用？", "洗衣前应该先检查什么？"];
 type SpeechEvent = { results: ArrayLike<{ 0: { transcript: string } }> };
@@ -20,9 +20,10 @@ function getRecognition() {
   return voiceWindow.SpeechRecognition ?? voiceWindow.webkitSpeechRecognition ?? null;
 }
 
-export function AskForm({ initialQuestion }: { initialQuestion: string }) {
+export function AskForm({ initialQuestion, initialConversationId }: { initialQuestion: string; initialConversationId?: number }) {
   const errorRef = useRef<HTMLDivElement>(null);
   const idempotencyRef = useRef<string | null>(null);
+  const conversationBootRef = useRef<Promise<number> | null>(null);
   const resultRef = useRef<HTMLElement>(null);
   const recognitionRef = useRef<Recognition | null>(null);
   const [question, setQuestion] = useState(initialQuestion);
@@ -33,6 +34,37 @@ export function AskForm({ initialQuestion }: { initialQuestion: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [listening, setListening] = useState(false);
+  const [conversationId, setConversationId] = useState<number | null>(initialConversationId ?? null);
+  const [conversations, setConversations] = useState<CoachConversation[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    async function restoreConversation() {
+      try {
+        const id = initialConversationId ?? await (conversationBootRef.current ??= createCoachConversation().then((item) => item.id));
+        const [history, recent] = await Promise.all([getCoachConversationQuestions(id), getCoachConversations()]);
+        if (!active) return;
+        setConversationId(id);
+        setConversations(recent);
+        if (!initialConversationId) window.history.replaceState(null, "", `/coach?conversation=${id}`);
+        const latest = history.at(-1);
+        if (!latest) return;
+        const restored = latest.status === "waiting_confirmation" && !latest.answer_mode ? await answerQuestion(latest.id) : latest;
+        if (!active) return;
+        setQuestion(restored.original_text);
+        setResult(restored);
+        if (restored.status === "confirmed") {
+          const session = await confirmQuestion(restored.id);
+          if (active) setLearningSession(session);
+        }
+      } catch (caught) {
+        if (!active) return;
+        setError(caught instanceof AppError ? caught.message : "暂时无法恢复学习记录，请稍后再试。");
+      }
+    }
+    void restoreConversation();
+    return () => { active = false; };
+  }, [initialConversationId]);
 
   useEffect(() => { if (result) requestAnimationFrame(() => resultRef.current?.focus()); }, [result]);
   useEffect(() => {
@@ -55,8 +87,11 @@ export function AskForm({ initialQuestion }: { initialQuestion: string }) {
     setSubmitting(true); setError("");
     try {
       idempotencyRef.current ??= crypto.randomUUID();
-      const created = await createQuestion(question.trim(), idempotencyRef.current);
+      const activeConversationId = conversationId ?? await (conversationBootRef.current ??= createCoachConversation().then((item) => item.id));
+      setConversationId(activeConversationId);
+      const created = await createQuestion(question.trim(), idempotencyRef.current, activeConversationId);
       setResult(await answerQuestion(created.id));
+      setConversations(await getCoachConversations());
     } catch (caught) {
       setError(caught instanceof AppError ? caught.message : "这次没有提交成功，请稍后再试。");
       requestAnimationFrame(() => errorRef.current?.focus());
@@ -90,7 +125,7 @@ export function AskForm({ initialQuestion }: { initialQuestion: string }) {
       <div className="coach-brand" aria-label="阿嬷学院 AI 陪学"><strong>阿嬷 AI 老师</strong><span>家政入门陪学</span></div>
       <Link className="coach-icon-button" href="/choose-mode" aria-label="切换学习方式"><Repeat2 aria-hidden="true" size={25} /></Link>
     </header>
-    <CoachDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+    <CoachDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} conversations={conversations} currentConversationId={conversationId} />
 
     <section className={`coach-stage ${result ? "has-result" : ""}`} aria-label="AI 陪学对话">
       {!result && <div className="coach-welcome">
@@ -122,12 +157,16 @@ export function AskForm({ initialQuestion }: { initialQuestion: string }) {
   </main>;
 }
 
-function CoachDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+function CoachDrawer({ open, onClose, conversations, currentConversationId }: { open: boolean; onClose: () => void; conversations: CoachConversation[]; currentConversationId: number | null }) {
   return <div className={`coach-drawer-layer ${open ? "is-open" : ""}`} aria-hidden={!open}>
     <button className="coach-drawer-scrim" type="button" onClick={onClose} tabIndex={open ? 0 : -1} aria-label="关闭学习菜单" />
     <aside className="coach-drawer" role="dialog" aria-modal="true" aria-label="学习菜单">
       <div className="coach-drawer-head"><div><strong>阿嬷学院</strong><span>从入门到上岗</span></div><button type="button" onClick={onClose} aria-label="关闭学习菜单"><X aria-hidden="true" size={24} /></button></div>
       <Link className="drawer-primary" href="/coach" onClick={onClose}><Plus aria-hidden="true" size={21} />开始新提问</Link>
+      {conversations.length > 0 && <section className="coach-history" aria-labelledby="coach-history-title">
+        <h2 id="coach-history-title">最近对话</h2>
+        <div>{conversations.slice(0, 8).map((conversation) => <Link className={conversation.id === currentConversationId ? "is-current" : ""} key={conversation.id} href={`/coach?conversation=${conversation.id}`} onClick={onClose}><span>{conversation.title}</span><ArrowRight aria-hidden="true" size={17} /></Link>)}</div>
+      </section>}
       <nav aria-label="学习功能">
         <DrawerLink href="/choose-mode" icon={<Repeat2 />} title="切换学习方式" detail="基础版或 AI 专业陪学版" onClick={onClose} />
         <DrawerLink href="/account" icon={<Settings />} title="账号与大字模式" detail="管理学习设置" onClick={onClose} />

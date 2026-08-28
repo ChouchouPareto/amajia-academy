@@ -1,4 +1,4 @@
-import type { AdminCourseVersion, AiCapability, AssessmentAttempt, AssessmentResult, CourseCard, DeleteAccountResult, Invitation, IssuedInvitation, KnowledgeSearchResult, LearningOverview, LearningReport, LearningSession, MediaAsset, QuestionRequest, QuizResult, User } from "@/lib/types";
+import type { AdminCourseVersion, AiCapability, AssessmentAttempt, AssessmentResult, CoachConversation, CourseCard, DeleteAccountResult, Invitation, IssuedInvitation, KnowledgeSearchResult, LearningOverview, LearningReport, LearningSession, MediaAsset, QuestionRequest, QuizResult, User } from "@/lib/types";
 
 type ErrorPayload = {
   detail?: string;
@@ -93,6 +93,9 @@ export async function createQuestion(text: string, idempotencyKey: string, conve
 
 export function getQuestion(id: number) { return api<QuestionRequest>(`/api/v1/questions/${id}`); }
 export function getAiCapability() { return api<AiCapability>("/api/v1/ai/capability"); }
+export function getCoachConversations() { return api<CoachConversation[]>("/api/v1/coach/conversations"); }
+export function createCoachConversation() { return api<CoachConversation>("/api/v1/coach/conversations", { method: "POST" }); }
+export function getCoachConversationQuestions(id: number) { return api<QuestionRequest[]>(`/api/v1/coach/conversations/${id}/questions`); }
 export function searchKnowledge(query: string) { return api<KnowledgeSearchResult>(`/api/v1/knowledge/search?q=${encodeURIComponent(query)}`); }
 export function answerQuestion(id: number) { return api<QuestionRequest>(`/api/v1/questions/${id}/answer`, { method: "POST" }); }
 export function confirmQuestion(id: number) { return api<LearningSession>(`/api/v1/questions/${id}/confirm`, { method: "POST" }); }

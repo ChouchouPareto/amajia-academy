@@ -973,6 +973,13 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .coach-drawer-head strong { font-size: 24px; }
 .coach-drawer-head span { margin-top: 2px; color: var(--helper); font-size: 12px; }
 .drawer-primary { display: flex; min-height: 58px; align-items: center; justify-content: center; gap: 8px; margin-top: 24px; border-radius: 20px; background: #f0f2f1; font-weight: 800; }
+.coach-history { margin-top: 26px; }
+.coach-history h2 { margin: 0 8px 9px; color: var(--helper); font-size: 13px; font-weight: 750; }
+.coach-history > div { display: grid; gap: 4px; }
+.coach-history a { display: grid; min-height: 50px; grid-template-columns: minmax(0, 1fr) 18px; align-items: center; gap: 8px; border-radius: 16px; padding: 8px 12px; color: var(--ink); font-size: 14px; font-weight: 700; }
+.coach-history a:hover,
+.coach-history a.is-current { background: var(--sky); }
+.coach-history a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .coach-drawer nav { display: grid; gap: 4px; margin-top: 30px; }
 .coach-drawer nav > a { display: grid; min-height: 76px; grid-template-columns: 44px 1fr 20px; align-items: center; gap: 12px; border-radius: 20px; padding: 10px 8px; }
 .coach-drawer nav > a:hover { background: var(--sky); }

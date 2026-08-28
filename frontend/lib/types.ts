@@ -80,6 +80,15 @@ export type MediaAsset = {
   published_at: string | null;
 };
 
+export type CoachConversation = {
+  id: number;
+  user_id: number;
+  title: string;
+  status: "active" | "archived";
+  created_at: string;
+  updated_at: string;
+};
+
 export type QuizResult = {
   correct: boolean;
   message: string;
