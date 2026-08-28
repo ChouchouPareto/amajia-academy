@@ -12,11 +12,12 @@ from app.main import app  # noqa: E402
 from app.ai_service import answer_from_published_knowledge  # noqa: E402
 from app.assessments import ASSESSMENT_VERSION, questions_for, score_answers  # noqa: E402
 from app.assessment_bank_v2 import SOURCE_IDS  # noqa: E402
-from app.models import CourseVersion, QuestionRequest  # noqa: E402
+from app.models import CourseVersion, KnowledgeIndexChunk, QuestionRequest  # noqa: E402
 from app.coach_skills import SKILLS, validate_tool_request  # noqa: E402
 from app.coach_orchestrator import plan_question_answer  # noqa: E402
 from app.coach_tools import TOOLS  # noqa: E402
 from app.prompt_engineering import GROUNDED_HOUSEKEEPING_ANSWER, get_prompt  # noqa: E402
+from app.knowledge_retrieval import rebuild_course_index  # noqa: E402
 from app.db import engine  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
@@ -93,7 +94,7 @@ def test_published_knowledge_search_is_retrieval_only(monkeypatch):
         with Session(engine) as db:
             existing = db.query(CourseVersion).filter_by(course_id="kitchen-order", version=9).one_or_none()
             if existing is None:
-                db.add(CourseVersion(
+                version = CourseVersion(
                     course_id="kitchen-order",
                     version=9,
                     title="厨房清洁基本顺序",
@@ -106,7 +107,10 @@ def test_published_knowledge_search_is_retrieval_only(monkeypatch):
                     disclaimer="清洁剂按标签使用，不要混用。",
                     source_refs=[{"name": "内测审核资料", "url": "https://example.com/reviewed-kitchen"}],
                     review_status="published",
-                ))
+                )
+                db.add(version)
+                db.flush()
+                rebuild_course_index(db, version)
                 db.commit()
 
         response = client.get("/api/v1/knowledge/search", params={"q": "厨房油污怎么处理"})
@@ -119,6 +123,7 @@ def test_published_knowledge_search_is_retrieval_only(monkeypatch):
         assert "answer" not in payload
         with Session(engine) as db:
             created = db.query(CourseVersion).filter_by(course_id="kitchen-order", version=9).one()
+            db.query(KnowledgeIndexChunk).filter_by(course_version_id=created.id).delete()
             db.delete(created)
             db.commit()
 

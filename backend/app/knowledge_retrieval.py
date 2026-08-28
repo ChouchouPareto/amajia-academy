@@ -16,7 +16,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import CourseVersion, Lesson
+from .models import CourseVersion, KnowledgeIndexChunk, Lesson
 
 
 @dataclass(frozen=True)
@@ -104,32 +104,45 @@ def _embedding_vectors(texts: list[str]) -> list[list[float]] | None:
 
 
 def _published_chunks(db: Session, domain: str) -> list[KnowledgeChunk]:
-    versions = list(
-        db.scalars(
-            select(CourseVersion)
-            .join(Lesson, Lesson.id == CourseVersion.course_id)
-            .where(CourseVersion.review_status == "published", Lesson.domain == domain)
-            .order_by(CourseVersion.published_at.desc(), CourseVersion.version.desc())
-        )
-    )
-    chunks: list[KnowledgeChunk] = []
-    for version in versions:
-        shared = dict(
-            course_id=version.course_id,
-            course_version_id=version.id,
-            version=version.version,
-            title=version.title or version.course_id,
-            disclaimer=version.disclaimer or "",
-            source_refs=version.source_refs or [],
-        )
-        overview = "。".join(value for value in (version.summary, version.conclusion) if value)
-        if overview:
-            chunks.append(KnowledgeChunk(section="课程要点", content=overview, **shared))
-        for index, step in enumerate(version.steps or []):
-            content = "：".join(value for value in (step.get("title", ""), step.get("body", "")) if value)
-            if content:
-                chunks.append(KnowledgeChunk(section=f"步骤{index + 1}", content=content, **shared))
-    return chunks
+    rows = list(db.scalars(select(KnowledgeIndexChunk).where(KnowledgeIndexChunk.domain == domain, KnowledgeIndexChunk.active.is_(True))))
+    versions = {item.id: item for item in db.scalars(select(CourseVersion).where(CourseVersion.id.in_({row.course_version_id for row in rows})))} if rows else {}
+    return [KnowledgeChunk(course_id=row.course_id, course_version_id=row.course_version_id, version=versions[row.course_version_id].version, title=row.title, section=row.section, content=row.content, disclaimer=row.disclaimer, source_refs=row.source_refs or []) for row in rows if row.course_version_id in versions and versions[row.course_version_id].review_status == "published"]
+
+
+def rebuild_course_index(db: Session, version: CourseVersion, *, domain: str = "housekeeping") -> int:
+    """Replace one course version's persisted chunks after an approved publish."""
+    for row in db.scalars(select(KnowledgeIndexChunk).where(KnowledgeIndexChunk.course_id == version.course_id)):
+        row.active = False
+    raw: list[tuple[str, str, str]] = []
+    overview = "。".join(value for value in (version.summary, version.conclusion) if value)
+    if overview:
+        raw.append(("overview", "课程要点", overview))
+    raw.extend((f"step-{index + 1}", f"步骤{index + 1}", "：".join(value for value in (step.get("title", ""), step.get("body", "")) if value)) for index, step in enumerate(version.steps or []))
+    texts = [content for _, _, content in raw if content]
+    vectors = _embedding_vectors(texts) if texts else None
+    model = os.getenv("AI_EMBEDDING_MODEL") if vectors else None
+    count = 0
+    for index, (key, section, content) in enumerate(item for item in raw if item[2]):
+        row = db.scalar(select(KnowledgeIndexChunk).where(KnowledgeIndexChunk.course_version_id == version.id, KnowledgeIndexChunk.chunk_key == key))
+        if row is None:
+            row = KnowledgeIndexChunk(course_id=version.course_id, course_version_id=version.id, chunk_key=key, domain=domain, title=version.title or version.course_id, section=section, content=content)
+            db.add(row)
+        row.title = version.title or version.course_id
+        row.section = section
+        row.content = content
+        row.disclaimer = version.disclaimer or ""
+        row.source_refs = version.source_refs or []
+        row.embedding = vectors[index] if vectors else None
+        row.embedding_model = model
+        row.active = version.review_status == "published"
+        count += 1
+    db.flush()
+    return count
+
+
+def deactivate_course_index(db: Session, course_id: str) -> None:
+    for row in db.scalars(select(KnowledgeIndexChunk).where(KnowledgeIndexChunk.course_id == course_id)):
+        row.active = False
 
 
 def retrieve_published_course(db: Session, course_id: str) -> CourseVersion | None:
@@ -146,9 +159,14 @@ def search_published_knowledge(db: Session, query: str, *, domain: str = "housek
     if not chunks:
         return [], "structured_lexical"
     lexical = [_lexical_score(query, chunk) for chunk in chunks]
-    vectors = _embedding_vectors([query, *[chunk.content for chunk in chunks]])
-    embedding_scores = [_cosine(vectors[0], vector) for vector in vectors[1:]] if vectors else [None] * len(chunks)
-    mode = "hybrid_embedding" if vectors else "structured_lexical"
+    stored = list(db.scalars(select(KnowledgeIndexChunk).where(KnowledgeIndexChunk.domain == domain, KnowledgeIndexChunk.active.is_(True))))
+    stored_by_key = {(row.course_version_id, row.section): row for row in stored}
+    query_vectors = _embedding_vectors([query]) if any(row.embedding for row in stored) else None
+    embedding_scores = []
+    for chunk in chunks:
+        row = stored_by_key.get((chunk.course_version_id, chunk.section))
+        embedding_scores.append(_cosine(query_vectors[0], row.embedding) if query_vectors and row and row.embedding else None)
+    mode = "hybrid_embedding" if any(score is not None for score in embedding_scores) else "structured_lexical"
     hits: list[KnowledgeHit] = []
     for chunk, lexical_score, embedding_score in zip(chunks, lexical, embedding_scores, strict=True):
         if embedding_score is None:

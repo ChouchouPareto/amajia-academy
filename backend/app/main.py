@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from .admin_content import AdminContentError, router as admin_content_router
 from .ai_service import answer_from_published_knowledge, model_configured
 from .coach_orchestrator import plan_question_answer
-from .knowledge_retrieval import retrieve_published_course, search_published_knowledge
+from .knowledge_retrieval import rebuild_course_index, retrieve_published_course, search_published_knowledge
 from .auth import AuthError, require_current_user, router as auth_router, seed_development_invitations
 from .db import engine, ensure_schema, get_db
 from .assessments import ASSESSMENT_VERSION, public_questions, questions_for, score_answers
@@ -95,6 +95,10 @@ async def lifespan(_: FastAPI):
     with Session(engine) as db:
         seed_lessons(db)
         seed_development_invitations(db)
+        for version in db.scalars(select(CourseVersion).where(CourseVersion.review_status == "published")):
+            lesson = db.get(Lesson, version.course_id)
+            rebuild_course_index(db, version, domain=lesson.domain if lesson else "housekeeping")
+        db.commit()
     yield
 
 

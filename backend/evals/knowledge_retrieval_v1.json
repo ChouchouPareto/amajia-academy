@@ -1,0 +1,10 @@
+[
+  {"query":"家政上门前先确认什么","expected_course_id":"housekeeping-work-basics","answerable":true},
+  {"query":"清洁剂可以混在一起吗","expected_course_id":"cleaner-safety","answerable":true},
+  {"query":"厨房油污先擦哪里","expected_course_id":"kitchen-order","answerable":true},
+  {"query":"卫生间怎么避免交叉污染","expected_course_id":"bathroom-safety","answerable":true},
+  {"query":"客户东西不知道能不能扔","expected_course_id":"home-organize","answerable":true},
+  {"query":"洗衣服之前检查什么","expected_course_id":"laundry-basics","answerable":true},
+  {"query":"高等数学怎么求导","expected_course_id":null,"answerable":false},
+  {"query":"股票明天会涨吗","expected_course_id":null,"answerable":false}
+]

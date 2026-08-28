@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from .auth import hash_secret, session_for_token, utc_now
 from .db import get_db
 from .models import ContentAuditEvent, ContentReview, CourseVersion, Invitation, Lesson, User
+from .knowledge_retrieval import deactivate_course_index, rebuild_course_index
 from .schemas import (
     AdminActionIn,
     AdminCourseVersionCreateIn,
@@ -266,6 +267,7 @@ def publish_version(version_id: int, payload: AdminActionIn, db: Session = Depen
     version.review_status = "published"
     version.published_at = datetime.now(timezone.utc)
     version.suspended_at = None
+    rebuild_course_index(db, version, domain=lesson.domain)
     add_audit(db, version, "publish", payload.actor, payload.idempotency_key, {"comment": payload.comment})
     db.commit()
     return serialize_version(db, version)
@@ -284,6 +286,7 @@ def suspend_version(version_id: int, payload: AdminActionIn, db: Session = Depen
         lesson.content_status = "suspended"
     version.review_status = "suspended"
     version.suspended_at = datetime.now(timezone.utc)
+    deactivate_course_index(db, version.course_id)
     add_audit(db, version, "suspend", payload.actor, payload.idempotency_key, {"comment": payload.comment})
     db.commit()
     return serialize_version(db, version)

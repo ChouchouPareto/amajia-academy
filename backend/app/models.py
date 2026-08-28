@@ -99,6 +99,26 @@ class CourseVersion(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class KnowledgeIndexChunk(Base):
+    __tablename__ = "knowledge_index_chunks"
+    __table_args__ = (UniqueConstraint("course_version_id", "chunk_key", name="uq_knowledge_version_chunk"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    course_id: Mapped[str] = mapped_column(ForeignKey("lessons.id"), index=True)
+    course_version_id: Mapped[int] = mapped_column(ForeignKey("course_versions.id"), index=True)
+    chunk_key: Mapped[str] = mapped_column(String(80))
+    domain: Mapped[str] = mapped_column(String(32), index=True)
+    title: Mapped[str] = mapped_column(String(180))
+    section: Mapped[str] = mapped_column(String(120))
+    content: Mapped[str] = mapped_column(Text)
+    disclaimer: Mapped[str] = mapped_column(Text, default="")
+    source_refs: Mapped[list[dict[str, str]]] = mapped_column(JSON, default=list)
+    embedding: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
+    embedding_model: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    indexed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class ContentReview(Base):
     __tablename__ = "content_reviews"
 
