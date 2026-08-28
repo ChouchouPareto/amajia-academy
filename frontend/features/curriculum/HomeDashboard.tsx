@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { AppError, getLearningOverview } from "@/lib/api";
 import type { LearningOverview } from "@/lib/types";
-import { HomeComposer } from "@/features/question/HomeComposer";
+import { HomeAiButton } from "@/features/question/HomeAiButton";
 
 const actions = {
   start_pre_assessment: { href: "/assessment/pre", eyebrow: "先了解现在的基础", title: "开始家政入门测一测", copy: "6道小题，不计考试，只用来推荐学习顺序。", button: "开始测一测" },
@@ -41,8 +41,6 @@ export function HomeDashboard() {
         <h2>从家政入门，学会一门新本事。</h2>
         <p className="academy-lead">不用怕看不懂。我们把家政基础知识拆成小步骤，每次只学一件事。</p>
       </section>
-
-      <HomeComposer />
 
       <section className="academy-primary-card" aria-busy={!overview && !error}>
         {error ? (
@@ -80,6 +78,7 @@ export function HomeDashboard() {
       </div>
       <p className="home-content-note">当前为内部开发测试，线上学习结果不等于职业资格或实操认证</p>
       <Link className="home-account-link" href="/account"><UserRound aria-hidden="true" size={17} />账号与隐私</Link>
+      <HomeAiButton />
     </main>
   );
 }
