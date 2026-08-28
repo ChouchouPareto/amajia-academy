@@ -176,7 +176,7 @@ class AssessmentAttempt(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     kind: Mapped[str] = mapped_column(String(24), index=True)
-    assessment_version: Mapped[str] = mapped_column(String(24), default="v0.4-test-1")
+    assessment_version: Mapped[str] = mapped_column(String(24), default="v0.4-test-2")
     attempt_no: Mapped[int] = mapped_column(Integer, default=1)
     idempotency_key: Mapped[str] = mapped_column(String(80))
     is_official: Mapped[bool] = mapped_column(Boolean, default=True)

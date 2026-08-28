@@ -10,6 +10,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402
 from app.ai_service import answer_from_published_knowledge  # noqa: E402
+from app.assessments import ASSESSMENT_VERSION, questions_for, score_answers  # noqa: E402
+from app.assessment_bank_v2 import SOURCE_IDS  # noqa: E402
 from app.models import CourseVersion, QuestionRequest  # noqa: E402
 
 
@@ -200,8 +202,10 @@ def test_housekeeping_assessment_and_report_flow():
             json={"user_id": user["id"], "idempotency_key": "pre-assessment-test-key"},
         ).json()
         assert pre["status"] == "in_progress"
-        assert len(pre["questions"]) == 6
+        assert pre["assessment_version"] == ASSESSMENT_VERSION
+        assert len(pre["questions"]) == 12
         assert "correct_answer" not in pre["questions"][0]
+        assert "source_ids" not in pre["questions"][0]
 
         for question in pre["questions"]:
             response = client.put(
@@ -240,15 +244,9 @@ def test_housekeeping_assessment_and_report_flow():
         )
         assert post.status_code == 200
         post_payload = post.json()
+        correct_answers = {question["id"]: question["correct_answer"] for question in questions_for("post")}
         for question in post_payload["questions"]:
-            option = next(
-                (
-                    item["id"]
-                    for item in question["options"]
-                    if item["id"] == {"post-h01": "a", "post-h02": "b", "post-h03": "b", "post-h04": "a", "post-h05": "b", "post-h06": "b"}[question["id"]]
-                ),
-                question["options"][0]["id"],
-            )
+            option = correct_answers[question["id"]]
             client.put(
                 f"/api/v1/assessments/attempts/{post_payload['id']}/answers/{question['id']}",
                 json={"selected_answer": option},
@@ -258,6 +256,8 @@ def test_housekeeping_assessment_and_report_flow():
         )
         assert submitted_post.status_code == 200
         assert submitted_post.json()["score"] == 100
+        assert submitted_post.json()["question_count"] == 12
+        assert len(submitted_post.json()["knowledge_point_results"]) == 6
 
         report = client.get(
             "/api/v1/learning/report", params={"user_id": user["id"]}
@@ -265,6 +265,41 @@ def test_housekeeping_assessment_and_report_flow():
         assert report.status_code == 200
         assert report.json()["report_status"] == "complete"
         assert report.json()["completed_core_courses"] == 6
+
+
+def test_assessment_bank_is_balanced_and_module_scoring_requires_both_answers():
+    for kind in ("pre", "post"):
+        questions = questions_for(kind)
+        assert len(questions) == 12
+        assert len({question["id"] for question in questions}) == 12
+        counts: dict[str, int] = {}
+        for question in questions:
+            name = str(question["knowledge_point"])
+            counts[name] = counts.get(name, 0) + 1
+            assert len(question["options"]) == 3
+            assert question["correct_answer"] in {option["id"] for option in question["options"]}
+            assert question["source_ids"]
+            assert set(question["source_ids"]).issubset(SOURCE_IDS)
+        assert set(counts.values()) == {2}
+
+    answers = {question["id"]: question["correct_answer"] for question in questions_for("post")}
+    first_question = questions_for("post")[0]
+    answers[str(first_question["id"])] = next(
+        option["id"] for option in first_question["options"] if option["id"] != first_question["correct_answer"]
+    )
+    score, correct, results = score_answers("post", answers)
+    assert score == 92
+    assert correct == 11
+    assert results["职业规范"] is False
+
+
+def test_legacy_assessment_bank_remains_readable():
+    assert len(questions_for("pre", "v0.4-test-1")) == 6
+    answers = {question["id"]: question["correct_answer"] for question in questions_for("post", "v0.4-test-1")}
+    score, correct, results = score_answers("post", answers, "v0.4-test-1")
+    assert score == 100
+    assert correct == 6
+    assert all(results.values())
 
 
 def test_content_review_publish_and_suspend_flow():

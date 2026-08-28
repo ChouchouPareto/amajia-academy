@@ -15,7 +15,7 @@ from .admin_content import AdminContentError, router as admin_content_router
 from .ai_service import answer_from_published_knowledge, model_configured
 from .auth import AuthError, require_current_user, router as auth_router, seed_development_invitations
 from .db import engine, ensure_schema, get_db
-from .assessments import public_questions, questions_for, score_answers
+from .assessments import ASSESSMENT_VERSION, public_questions, questions_for, score_answers
 from .models import AssessmentAttempt, CourseVersion, LearningSession, Lesson, QuestionRequest, User
 from .schemas import (
     AssessmentAnswerIn,
@@ -591,6 +591,7 @@ def start_assessment(kind: str, payload: AssessmentStartIn, user: User = Depends
         existing = AssessmentAttempt(
             user_id=payload.user_id,
             kind=kind,
+            assessment_version=ASSESSMENT_VERSION,
             idempotency_key=payload.idempotency_key,
             attempt_no=1,
             is_official=True,
@@ -604,7 +605,7 @@ def start_assessment(kind: str, payload: AssessmentStartIn, user: User = Depends
         status=existing.status,
         assessment_version=existing.assessment_version,
         answers=existing.answers,
-        questions=public_questions(kind),
+        questions=public_questions(kind, existing.assessment_version),
         score=existing.score,
     )
 
@@ -623,7 +624,7 @@ def save_assessment_answer(
     ensure_owner(user, attempt.user_id)
     if attempt.status != "in_progress":
         return error_response(409, "ATTEMPT_ALREADY_SUBMITTED", "这次测一测已经提交")
-    question = next((item for item in questions_for(attempt.kind) if item["id"] == question_id), None)
+    question = next((item for item in questions_for(attempt.kind, attempt.assessment_version) if item["id"] == question_id), None)
     if question is None or payload.selected_answer not in {option["id"] for option in question["options"]}:
         return error_response(422, "INVALID_ANSWER", "这个答案不在选项中")
     answers = dict(attempt.answers or {})
@@ -637,7 +638,7 @@ def save_assessment_answer(
         status=attempt.status,
         assessment_version=attempt.assessment_version,
         answers=attempt.answers,
-        questions=public_questions(attempt.kind),
+        questions=public_questions(attempt.kind, attempt.assessment_version),
         score=attempt.score,
     )
 
@@ -648,13 +649,13 @@ def submit_assessment(attempt_id: int, user: User = Depends(require_current_user
     if attempt is None:
         return error_response(404, "ATTEMPT_NOT_FOUND", "没有找到这次测一测")
     ensure_owner(user, attempt.user_id)
-    questions = questions_for(attempt.kind)
+    questions = questions_for(attempt.kind, attempt.assessment_version)
     if attempt.status == "submitted" and attempt.score is not None:
-        score, correct, results = score_answers(attempt.kind, attempt.answers)
+        score, correct, results = score_answers(attempt.kind, attempt.answers, attempt.assessment_version)
     else:
         if len(attempt.answers or {}) != len(questions):
             return error_response(422, "ASSESSMENT_INCOMPLETE", "还有题目没有回答")
-        score, correct, results = score_answers(attempt.kind, attempt.answers)
+        score, correct, results = score_answers(attempt.kind, attempt.answers, attempt.assessment_version)
         attempt.score = score
         attempt.status = "submitted"
         attempt.submitted_at = datetime.now(timezone.utc)
@@ -697,7 +698,7 @@ def learning_report(user_id: int, user: User = Depends(require_current_user), db
     missing = [name for name, value in (("pre_assessment", pre), ("post_assessment", post)) if value is None]
     if missing:
         return LearningReportOut(report_status="incomplete", completed_core_courses=len({item.lesson_id for item in completed}), missing=missing)
-    _, _, post_results = score_answers("post", post.answers)
+    _, _, post_results = score_answers("post", post.answers, post.assessment_version)
     improvement = int(post.score or 0) - int(pre.score or 0)
     return LearningReportOut(
         report_status="complete",
