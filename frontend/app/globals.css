@@ -564,16 +564,14 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 }
 
 /* 阿嬷学院 v0.4 家政学习纵向切片 */
-.academy-home { width: min(100%, 760px); margin: 0 auto; overflow: visible; padding: max(10px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom)); }
+.academy-home { width: min(100%, 760px); margin: 0 auto; overflow: visible; padding: max(16px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom)); }
 .academy-navigation { display: flex; min-height: 48px; align-items: center; justify-content: flex-end; }
 .academy-home, .page-shell, .curriculum-shell { padding-bottom: max(112px, calc(env(safe-area-inset-bottom) + 92px)); }
+.curriculum-shell { padding-top: max(16px, env(safe-area-inset-top)); }
 .academy-home::before { position: fixed; background: linear-gradient(180deg, #fffefb 0%, #fff 46%, #f6f8f7 100%); }
 .academy-home::after { display: none; }
-.academy-home-head { display: grid; grid-template-columns: minmax(0, 1fr) 88px; align-items: center; gap: 18px; padding: 22px 5px 20px; }
-.academy-home-head .academy-navigation { min-width: 0; grid-column: 2; grid-row: 1; }
-.academy-home-head .academy-welcome { grid-column: 1; grid-row: 1; }
-.academy-home-head .academy-version-menu, .coach-topbar .academy-version-menu { right: 0; left: auto; }
-.academy-welcome { min-width: 0; padding: 0; }
+.academy-navigation .academy-version-menu, .coach-topbar .academy-version-menu { right: 0; left: auto; }
+.academy-welcome { min-width: 0; padding: 24px 5px 20px; }
 .academy-version-selector { position: relative; z-index: 20; }
 .academy-version-selector--icon { width: 88px; height: 46px; }
 .academy-version-trigger-copy { min-width: 0; text-align: left; }
@@ -749,7 +747,6 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
   .home-controls > button, .home-controls > a { min-height: 72px; grid-template-columns: 1fr; justify-items: center; gap: 3px; padding: 7px 3px; text-align: center; }
   .home-controls svg { grid-row: auto; }
   .home-controls small { display: none; }
-  .academy-home-head { gap: 12px; padding: 20px 0 18px; }
   .academy-welcome-copy { gap: 10px; }
   .academy-welcome h1 { font-size: 27px; }
   .academy-welcome .academy-lead { font-size: 12px; }
@@ -852,7 +849,7 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .report-disclaimer { margin: 18px 6px 0; color: var(--helper); font-size: 12px; line-height: 1.6; text-align: center; }
 
 @media (max-width: 380px) {
-  .academy-welcome { padding-top: 16px; }
+  .academy-welcome { padding-top: 24px; }
   .academy-primary-card { padding: 21px 18px; }
   .course-path-card { grid-template-columns: 36px 1fr; gap: 8px; }
   .course-number { width: 36px; height: 36px; border-radius: 13px; }
