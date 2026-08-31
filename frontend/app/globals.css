@@ -652,6 +652,26 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .career-intro { padding: 38px 3px 24px; }
 .career-intro h1 { margin: 5px 0 0; color: var(--ink); font-size: clamp(40px, 11vw, 54px); letter-spacing: -.055em; line-height: 1.08; }
 .career-intro > p:last-child { max-width: 36ch; margin: 15px 0 0; color: #455861; font-size: 16px; line-height: 1.68; }
+.career-region { margin-bottom: 24px; border: 1px solid rgb(8 48 76 / 9%); border-radius: 24px; background: #fff; padding: 16px; box-shadow: var(--shadow-soft); }
+.career-region-heading { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 11px; }
+.career-region-heading > span { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 15px; background: var(--mint); color: #196443; }
+.career-region-heading h2 { margin: 2px 0 0; color: var(--ink); font-size: 22px; letter-spacing: -.025em; }
+.career-region-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.career-region-options button { display: flex; min-height: 52px; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line-strong); border-radius: 16px; background: #f8faf9; padding: 8px 10px; color: #42555e; font-size: 15px; font-weight: 850; line-height: 1.3; }
+.career-region-options button:last-child { grid-column: 1 / -1; }
+.career-region-options button.is-selected { border-color: rgb(39 139 101 / 36%); background: var(--mint); color: #195f3f; box-shadow: inset 0 0 0 1px rgb(39 139 101 / 12%); }
+.career-region-result { margin-top: 12px; border-radius: 19px; background: linear-gradient(135deg, #f3f8ff 0%, #f1faf4 100%); padding: 15px; }
+.career-region-status { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 10px; }
+.career-region-status > span { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 13px; background: #fff; color: var(--ink-soft); }
+.career-region-status small, .career-region-status strong { display: block; }
+.career-region-status small { color: #65777f; font-size: 11px; }
+.career-region-status strong { margin-top: 1px; color: var(--ink); font-size: 17px; }
+.career-region-result > p:not(.career-region-safe) { margin: 11px 0 0; color: #40545d; font-size: 14px; line-height: 1.65; }
+.career-region-links { display: grid; gap: 7px; margin-top: 12px; }
+.career-region-links a { display: grid; min-height: 48px; grid-template-columns: minmax(0, 1fr) 20px; align-items: center; gap: 8px; border: 1px solid rgb(8 48 76 / 8%); border-radius: 15px; background: rgb(255 255 255 / 86%); padding: 9px 12px; color: var(--ink); font-size: 13px; font-weight: 800; line-height: 1.4; }
+.career-region-links a svg { justify-self: end; }
+.career-region-safe { display: flex; align-items: flex-start; gap: 7px; margin: 12px 0 0; color: #63747b; font-size: 12px; line-height: 1.55; }
+.career-region-safe svg { flex: 0 0 auto; margin-top: 1px; }
 .career-map { display: grid; }
 .career-stage { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 11px; }
 .career-stage-line { display: grid; grid-template-rows: 42px 1fr; justify-items: center; }
@@ -678,6 +698,13 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .large-text .home-controls span, .large-text .academy-shortcuts strong { font-size: 17px; }
 .large-text .home-controls small, .large-text .academy-shortcuts small, .large-text .career-stage-card p, .large-text .career-stage-card strong { font-size: 15px; white-space: normal; }
 .large-text .academy-shortcuts small { overflow: visible; text-overflow: clip; }
+.large-text .career-region-options button { font-size: 17px; }
+.large-text .career-region-result > p:not(.career-region-safe), .large-text .career-region-safe, .large-text .career-region-links a { font-size: 15px; }
+
+@media (min-width: 560px) {
+  .career-region-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .career-region-options button:last-child { grid-column: auto; }
+}
 
 @media (max-width: 430px) {
   .home-controls { gap: 6px; }
