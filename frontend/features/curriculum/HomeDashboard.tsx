@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Award, BookOpenCheck, CheckCircle2, ChevronDown, GraduationCap, ShieldCheck } from "lucide-react";
+import { ArrowRight, Award, BookOpenCheck, CheckCircle2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -8,6 +8,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { AppError, getLearningOverview } from "@/lib/api";
 import type { LearningOverview } from "@/lib/types";
 import { HomeControls } from "@/features/home/HomeControls";
+import { HomeVersionSelector } from "@/features/home/HomeVersionSelector";
 
 const actions = {
   start_pre_assessment: { href: "/assessment/pre", eyebrow: "先了解现在的基础", title: "开始家政入门测一测", copy: "12道小题，不计考试，只用来推荐学习顺序。", button: "开始测一测" },
@@ -35,8 +36,8 @@ export function HomeDashboard() {
     <main id="main-content" className="home-shell academy-home">
       <AppHeader current="home" />
       <section className="academy-welcome">
-        <Link className="academy-badge" href="/choose-mode" aria-label="当前为家政入门内测版，点击切换学习版本"><GraduationCap aria-hidden="true" size={18} /><span>家政入门内测版</span><ChevronDown aria-hidden="true" size={16} /></Link>
-        <div><div><p>你好，欢迎来到</p><h1>阿嬷学院</h1></div><p className="academy-lead">从家政入门，<br />一步一步学到上岗准备。</p></div>
+        <HomeVersionSelector />
+        <div className="academy-welcome-copy"><h1>阿嬷学院</h1><p className="academy-lead">从家政入门，一步一步学到上岗准备。</p></div>
       </section>
 
       <section className="academy-primary-card academy-learning-summary" aria-busy={!overview && !error}>
