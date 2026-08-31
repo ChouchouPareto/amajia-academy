@@ -41,7 +41,7 @@ export function HomeVersionSelector({ variant = "icon" }: { variant?: "icon" | "
         onClick={() => setOpen((value) => !value)}
       >
         <GraduationCap aria-hidden="true" size={variant === "icon" ? 23 : 18} strokeWidth={2.2} />
-        {variant === "badge" && <><span>家政入门内测版</span><ChevronDown aria-hidden="true" size={16} /></>}
+        {variant === "icon" ? <span className="academy-version-trigger-copy"><strong>{coachMode ? "专业" : "基础"}</strong><small>切换版本</small></span> : <><span>家政入门内测版</span><ChevronDown aria-hidden="true" size={16} /></>}
       </button>
 
       {open && (

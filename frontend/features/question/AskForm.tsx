@@ -155,7 +155,6 @@ export function AskForm({ initialQuestion, initialConversationId }: { initialQue
 
     <section className={`coach-stage ${result ? "has-result" : ""}`} aria-label="AI 陪学对话">
       {!result && !learningSession && <div className="coach-welcome">
-        <div className="coach-avatar" aria-hidden="true"><Bot size={30} /></div>
         <p className="coach-kicker">专业版测试期免费</p>
         <h1>你好，我是阿嬷 AI 老师</h1>
         <p className="coach-welcome-copy">我会陪你学家政。可以打字，也可以直接说，今天想先问什么？</p>

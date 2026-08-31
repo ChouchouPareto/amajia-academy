@@ -119,10 +119,13 @@ export async function getHousekeepingCourses() {
 
 export async function startHousekeepingCourse(courseId: string) {
   const user = await getCurrentUser();
-  return api<LearningSession>(`/api/v1/housekeeping/courses/${courseId}/start`, {
-    method: "POST",
-    body: JSON.stringify({ user_id: user.id }),
-  });
+  const init = { method: "POST", body: JSON.stringify({ user_id: user.id }) };
+  try {
+    return await api<LearningSession>(`/api/v1/housekeeping/courses/${courseId}/start`, init);
+  } catch (caught) {
+    if (!(caught instanceof AppError) || !["UNKNOWN_ERROR", "COURSE_NOT_FOUND"].includes(caught.code)) throw caught;
+    return api<LearningSession>(`/api/v1/lessons/${courseId}/start`, init);
+  }
 }
 
 export async function getLearningOverview() {

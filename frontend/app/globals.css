@@ -568,7 +568,11 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .academy-home::after { display: none; }
 .academy-welcome { padding: 18px 5px 16px; }
 .academy-version-selector { position: relative; z-index: 20; }
-.academy-version-selector--icon { width: 46px; height: 46px; }
+.academy-version-selector--icon { width: 88px; height: 46px; }
+.academy-version-trigger-copy { min-width: 0; text-align: left; }
+.academy-version-trigger-copy strong, .academy-version-trigger-copy small { display: block; line-height: 1.15; }
+.academy-version-trigger-copy strong { font-size: 13px; }
+.academy-version-trigger-copy small { margin-top: 2px; color: #58707d; font-size: 9px; font-weight: 750; white-space: nowrap; }
 .academy-badge { display: inline-flex; min-height: 48px; align-items: center; gap: 7px; border: 0; border-radius: 999px; background: var(--mint); padding: 8px 13px; color: #195f3f; font-size: 13px; font-weight: 800; white-space: nowrap; }
 .academy-badge > svg:last-child { margin-left: 1px; opacity: .72; }
 .academy-badge[aria-expanded="true"] { box-shadow: inset 0 0 0 2px rgb(25 95 63 / 18%); }
@@ -860,7 +864,7 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
   top: 0;
   display: grid;
   min-height: 72px;
-  grid-template-columns: 52px 1fr 52px;
+  grid-template-columns: 88px 1fr 88px;
   align-items: center;
   gap: 8px;
   border-bottom: 1px solid rgb(8 48 76 / 7%);
@@ -868,6 +872,7 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
   padding: max(8px, env(safe-area-inset-top)) max(14px, calc((100vw - 720px) / 2)) 8px;
   backdrop-filter: blur(18px);
 }
+.coach-topbar > .coach-icon-button { justify-self: end; }
 
 .coach-icon-button,
 .coach-drawer-head button,
