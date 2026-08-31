@@ -36,7 +36,7 @@ export function HomeDashboard() {
       <div className="academy-home-head">
         <AppHeader current="home" />
         <section className="academy-welcome">
-          <div className="academy-welcome-copy"><h1>阿嬷学院</h1><p className="academy-lead">从家政入门，一步一步学到上岗准备。</p></div>
+          <div className="academy-welcome-copy"><h1>阿嬷学院</h1><p className="academy-lead">从入门学到上岗。</p></div>
         </section>
       </div>
 
