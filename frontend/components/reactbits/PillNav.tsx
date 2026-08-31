@@ -3,8 +3,6 @@
 import { BookOpenCheck, House, NotebookTabs } from "lucide-react";
 import Link from "next/link";
 
-import { HomeVersionSelector } from "@/features/home/HomeVersionSelector";
-
 type CurrentPage = "home" | "records" | "tools";
 
 const items = [
@@ -17,7 +15,6 @@ export function PillNav({ current }: { current?: CurrentPage }) {
   return (
     <div className="academy-pill-nav-container">
       <nav className="academy-pill-nav" aria-label="主要导航">
-        <HomeVersionSelector />
         <ul className="academy-pill-list">
           {items.map((item) => {
             const Icon = item.icon;

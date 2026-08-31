@@ -147,17 +147,16 @@ export function AskForm({ initialQuestion, initialConversationId }: { initialQue
 
   return <main id="main-content" className="coach-shell">
     <header className="coach-topbar">
-      <HomeVersionSelector />
-      <div className="coach-brand" aria-label="阿嬷学院 AI 陪学"><strong>阿嬷 AI 老师</strong><span>家政入门陪学</span></div>
       <button className="coach-icon-button" type="button" onClick={() => setDrawerOpen(true)} aria-label="打开学习菜单" aria-expanded={drawerOpen}><Menu aria-hidden="true" size={27} /></button>
+      <div className="coach-brand" aria-label="阿嬷学院 AI 陪学"><strong>阿嬷 AI 老师</strong><span>家政入门陪学</span></div>
+      <HomeVersionSelector />
     </header>
     <CoachDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} conversations={conversations} currentConversationId={conversationId} />
 
     <section className={`coach-stage ${result ? "has-result" : ""}`} aria-label="AI 陪学对话">
       {!result && !learningSession && <div className="coach-welcome">
-        <p className="coach-kicker">专业版测试期免费</p>
-        <h1>你好，我是阿嬷 AI 老师</h1>
-        <p className="coach-welcome-copy">我会陪你学家政。可以打字，也可以直接说，今天想先问什么？</p>
+        <h1>今天继续学什么？</h1>
+        <p className="coach-welcome-copy">我会陪你一步一步学，也可以随时提问。</p>
         {overview && <CoachJourneyPrompt overview={overview} starting={startingJourney} onContinueCourse={() => void continueJourneyCourse()} />}
         <div className="coach-suggestions" aria-label="推荐问题">{examples.map((example) => <button key={example} type="button" onClick={() => chooseExample(example)}><span>{example}</span><ArrowRight aria-hidden="true" size={20} /></button>)}</div>
       </div>}

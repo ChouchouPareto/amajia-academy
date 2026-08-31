@@ -33,10 +33,12 @@ export function HomeDashboard() {
 
   return (
     <main id="main-content" className="home-shell academy-home">
-      <AppHeader current="home" />
-      <section className="academy-welcome">
-        <div className="academy-welcome-copy"><h1>阿嬷学院</h1><p className="academy-lead">从家政入门，一步一步学到上岗准备。</p></div>
-      </section>
+      <div className="academy-home-head">
+        <AppHeader current="home" />
+        <section className="academy-welcome">
+          <div className="academy-welcome-copy"><h1>阿嬷学院</h1><p className="academy-lead">从家政入门，一步一步学到上岗准备。</p></div>
+        </section>
+      </div>
 
       <section className="academy-primary-card academy-learning-summary" aria-busy={!overview && !error}>
         {error ? (

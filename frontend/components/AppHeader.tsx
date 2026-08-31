@@ -1,4 +1,5 @@
 import { PillNav } from "@/components/reactbits/PillNav";
+import { HomeVersionSelector } from "@/features/home/HomeVersionSelector";
 
 type AppHeaderProps = { current?: "home" | "records" | "tools" };
 
@@ -7,8 +8,9 @@ export function AppHeader({ current }: AppHeaderProps) {
     <>
       <a className="skip-link" href="#main-content">跳到主要内容</a>
       <header className="academy-navigation">
-        <PillNav current={current} />
+        <HomeVersionSelector />
       </header>
+      <PillNav current={current} />
     </>
   );
 }

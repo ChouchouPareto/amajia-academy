@@ -1,26 +1,26 @@
 /* Adapted for Next.js from React Bits PillNav: https://reactbits.dev/components/pill-nav */
 .academy-pill-nav-container {
-  position: sticky;
+  position: fixed;
   z-index: 50;
-  top: max(10px, env(safe-area-inset-top));
-  width: 100%;
-  max-width: 720px;
+  right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  left: 12px;
+  width: auto;
+  max-width: 430px;
   margin: 0 auto;
 }
 
 .academy-pill-nav {
   --pill-base: #08304c;
   --pill-surface: #dff9e7;
-  display: grid;
-  min-height: 58px;
-  grid-template-columns: 88px minmax(0, 1fr);
+  display: block;
+  min-height: 62px;
   align-items: center;
-  gap: 8px;
   border: 1px solid rgb(8 48 76 / 10%);
   border-radius: 999px;
   background: rgb(255 255 255 / 94%);
   padding: 6px;
-  box-shadow: 0 14px 32px -24px rgb(8 48 76 / 32%), 0 0 0 1px rgb(255 255 255 / 72%) inset;
+  box-shadow: 0 18px 42px -20px rgb(8 48 76 / 42%), 0 0 0 1px rgb(255 255 255 / 72%) inset;
   backdrop-filter: blur(18px);
 }
 
@@ -43,7 +43,7 @@
 
 .academy-pill-list {
   display: grid;
-  height: 46px;
+  height: 48px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin: 0;
@@ -56,7 +56,7 @@
 .academy-pill {
   position: relative;
   display: flex;
-  height: 46px;
+  height: 48px;
   min-width: 0;
   align-items: center;
   justify-content: center;
@@ -97,10 +97,9 @@
 .academy-pill:focus-visible { outline-color: #0b6d91; outline-offset: 3px; }
 
 @media (max-width: 430px) {
-  .academy-pill-nav { min-height: 56px; grid-template-columns: 88px minmax(0, 1fr); gap: 6px; padding: 6px; }
-  .academy-pill-logo { width: 88px; height: 44px; }
-  .academy-pill-list { height: 44px; gap: 8px; }
-  .academy-pill { height: 44px; font-size: 13px; }
+  .academy-pill-nav { min-height: 58px; padding: 5px; }
+  .academy-pill-list { height: 46px; gap: 4px; }
+  .academy-pill { height: 46px; font-size: 13px; }
   .academy-pill-label { gap: 4px; }
 }
 
