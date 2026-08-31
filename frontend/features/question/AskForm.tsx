@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, BookOpenCheck, Bot, Check, CircleHelp, FileCheck2, LockKeyhole, Menu, Mic, Plus, Repeat2, SendHorizontal, Settings, ShieldAlert, ShieldCheck, Sparkles, X } from "lucide-react";
+import { ArrowRight, BookOpenCheck, Check, CircleHelp, FileCheck2, LockKeyhole, Menu, Mic, Plus, Repeat2, SendHorizontal, Settings, ShieldAlert, ShieldCheck, Sparkles, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
@@ -153,23 +153,17 @@ export function AskForm({ initialQuestion, initialConversationId }: { initialQue
     </header>
     <CoachDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} conversations={conversations} currentConversationId={conversationId} />
 
-    <section className={`coach-stage ${result ? "has-result" : ""}`} aria-label="AI 陪学对话">
-      {!result && !learningSession && <div className="coach-welcome">
-        <h1>今天继续学什么？</h1>
-        <p className="coach-welcome-copy">我会陪你一步一步学，也可以随时提问。</p>
-        {overview && <CoachJourneyPrompt overview={overview} starting={startingJourney} onContinueCourse={() => void continueJourneyCourse()} />}
-        <div className="coach-suggestions" aria-label="推荐问题">{examples.map((example) => <button key={example} type="button" onClick={() => chooseExample(example)}><span>{example}</span><ArrowRight aria-hidden="true" size={20} /></button>)}</div>
-      </div>}
-      {(result || learningSession) && <div className="coach-thread">
+    <section className={`coach-stage ${result || learningSession ? "has-result" : ""}`} aria-label="AI 陪学对话">
+      <div className="coach-thread">
+        {!result && !learningSession && <CoachJourneyPrompt overview={overview} starting={startingJourney} examples={examples} onContinueCourse={() => void continueJourneyCourse()} onChooseExample={chooseExample} />}
         {result && <article className="coach-user-turn" aria-label="你的问题"><span>你问</span><p>{result.original_text}</p></article>}
         {result && <QuestionResult ref={resultRef} result={result} learningStarted={Boolean(learningSession)} onContinue={continueLearning} onAskAgain={askAgain} />}
         {learningSession && <CoachLesson session={learningSession} onSessionChange={setLearningSession} onCompleted={refreshOverview} />}
-      </div>}
+      </div>
     </section>
 
     {(error || voiceMessage) && <div ref={errorRef} className={`coach-notice ${error ? "is-error" : ""}`} role={error ? "alert" : "status"} tabIndex={error ? -1 : undefined}>{error || voiceMessage}</div>}
     <div className="coach-composer-wrap">
-      {!result && <div className="coach-quick-row" aria-label="快捷提问">{examples.map((example, index) => <button key={example} type="button" onClick={() => chooseExample(example)} aria-label={`选择问题：${example}`}>{index === 0 ? "厨房清洁" : index === 1 ? "清洁剂安全" : "衣物洗涤"}</button>)}</div>}
       <form className="coach-composer" onSubmit={submit} noValidate>
         <Link className="composer-side-button" href="/tools" aria-label="打开学习工具"><Plus aria-hidden="true" size={25} /></Link>
         <label className="sr-only" htmlFor="coach-question">写下家政问题</label>
@@ -224,7 +218,7 @@ function QuestionResult({ ref, result, learningStarted, onContinue, onAskAgain }
 }
 
 function CoachLesson({ session, onSessionChange, onCompleted }: { session: LearningSession; onSessionChange: (session: LearningSession) => void; onCompleted: () => void }) {
-  const [phase, setPhase] = useState<"intro" | "step" | "quiz" | "complete">(session.status === "completed" ? "complete" : "intro");
+  const [phase, setPhase] = useState<"step" | "quiz" | "complete">(session.status === "completed" ? "complete" : "step");
   const [stepIndex, setStepIndex] = useState(session.current_step);
   const [answer, setAnswer] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -259,13 +253,11 @@ function CoachLesson({ session, onSessionChange, onCompleted }: { session: Learn
     finally { setSaving(false); }
   }
 
-  if (phase === "intro") return <section className="coach-lesson-card" aria-live="polite"><div className="coach-answer-label"><Bot aria-hidden="true" size={19} /><strong>现在开始陪你学</strong></div><h2>{lesson.title}</h2><p className="coach-answer-copy">先记住：{lesson.conclusion}</p><div className="coach-safety-line"><ShieldCheck aria-hidden="true" size={20} /><span>{lesson.disclaimer}</span></div><SpeakButton text={`${lesson.conclusion}。安全提醒：${lesson.disclaimer}`} label="听老师讲" /><button className="coach-course-action" type="button" onClick={() => setPhase("step")}><BookOpenCheck aria-hidden="true" size={22} /><span><strong>开始第一步</strong><small>共{lesson.steps.length}个小步骤，每次只学一件事</small></span><ArrowRight aria-hidden="true" size={22} /></button></section>;
+  if (phase === "step") return <section className="coach-lesson-card" aria-live="polite"><div className="coach-answer-label"><Sparkles aria-hidden="true" size={17} /><strong>阿嬷 AI 老师</strong></div><div className="coach-lesson-progress"><span>{lesson.title} · 第{stepIndex + 1}/{lesson.steps.length}步</span><strong>{progress}%</strong></div><div className="coach-lesson-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div><h2>{step.title}</h2><p className="coach-answer-copy">{step.body}</p>{stepIndex === 0 && <div className="coach-safety-line"><ShieldCheck aria-hidden="true" size={20} /><span>{lesson.disclaimer}</span></div>}{stepMedia.map((asset) => <CoachMediaCard key={asset.id} asset={asset} />)}<SpeakButton text={`${step.title}。${step.body}`} label="播报这一步" />{feedback && <div className="coach-action-error" role="status">{feedback}</div>}<button className="coach-course-action" type="button" onClick={() => void nextStep()} disabled={saving}><Check aria-hidden="true" size={22} /><span><strong>{saving ? "正在保存…" : stepIndex === lesson.steps.length - 1 ? "听懂了，问问我" : "听懂了，继续讲"}</strong><small>没听懂也可以用下面的输入框直接问我</small></span><ArrowRight aria-hidden="true" size={22} /></button></section>;
 
-  if (phase === "step") return <section className="coach-lesson-card" aria-live="polite"><div className="coach-lesson-progress"><span>第{stepIndex + 1}步，共{lesson.steps.length}步</span><strong>{progress}%</strong></div><div className="coach-lesson-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div><p className="coach-kicker">阿嬷 AI 老师正在讲</p><h2>{step.title}</h2><p className="coach-answer-copy">{step.body}</p>{stepMedia.map((asset) => <CoachMediaCard key={asset.id} asset={asset} />)}<SpeakButton text={`${step.title}。${step.body}`} label="播报这一步" />{feedback && <div className="coach-action-error" role="status">{feedback}</div>}<button className="coach-course-action" type="button" onClick={() => void nextStep()} disabled={saving}><Check aria-hidden="true" size={22} /><span><strong>{saving ? "正在保存…" : stepIndex === lesson.steps.length - 1 ? "我明白了，检查一下" : "我明白了，下一步"}</strong><small>学习位置会自动同步到基础版</small></span><ArrowRight aria-hidden="true" size={22} /></button></section>;
+  if (phase === "quiz") return <section className="coach-lesson-card" aria-live="polite"><div className="coach-answer-label"><Sparkles aria-hidden="true" size={17} /><strong>阿嬷 AI 老师</strong></div><p className="coach-check-intro">我想确认一下你有没有听懂：</p><h2>{lesson.quiz.question}</h2><SpeakButton text={`${lesson.quiz.question}。${lesson.quiz.options.map((option) => `${option.id}，${option.label}`).join("。")}`} label="播报题目" /><div className="coach-answer-options" role="radiogroup" aria-label="可以这样回答">{lesson.quiz.options.map((option) => <button key={option.id} type="button" role="radio" aria-checked={answer === option.id} className={answer === option.id ? "is-selected" : ""} onClick={() => { setAnswer(option.id); setFeedback(""); }}><span>{option.id.toUpperCase()}</span><strong>{option.label}</strong>{answer === option.id && <Check aria-hidden="true" size={20} />}</button>)}</div>{feedback && <div className="coach-action-error" role="status">{feedback}</div>}<button className="coach-course-action" type="button" onClick={() => void checkAnswer()} disabled={!answer || saving}><Check aria-hidden="true" size={22} /><span><strong>{saving ? "正在听…" : "就这样回答"}</strong><small>答错了没关系，我会换一种方式再讲</small></span><ArrowRight aria-hidden="true" size={22} /></button></section>;
 
-  if (phase === "quiz") return <section className="coach-lesson-card" aria-live="polite"><div className="coach-answer-label"><Bot aria-hidden="true" size={19} /><strong>我来检查一下</strong></div><h2>{lesson.quiz.question}</h2><SpeakButton text={`${lesson.quiz.question}。${lesson.quiz.options.map((option) => `${option.id}，${option.label}`).join("。")}`} label="播报题目" /><div className="coach-answer-options" role="radiogroup" aria-label="答案选项">{lesson.quiz.options.map((option) => <button key={option.id} type="button" role="radio" aria-checked={answer === option.id} className={answer === option.id ? "is-selected" : ""} onClick={() => { setAnswer(option.id); setFeedback(""); }}><span>{option.id.toUpperCase()}</span><strong>{option.label}</strong>{answer === option.id && <Check aria-hidden="true" size={20} />}</button>)}</div>{feedback && <div className="coach-action-error" role="status">{feedback}</div>}<button className="coach-course-action" type="button" onClick={() => void checkAnswer()} disabled={!answer || saving}><Check aria-hidden="true" size={22} /><span><strong>{saving ? "正在检查…" : "提交给 AI 老师"}</strong><small>答错了也没关系，我会继续陪你学</small></span><ArrowRight aria-hidden="true" size={22} /></button></section>;
-
-  return <section className="coach-lesson-card coach-lesson-complete" aria-live="polite"><div className="coach-complete-mark"><Check aria-hidden="true" size={32} /></div><p className="coach-kicker">学习记录已经同步</p><h2>这门课学完了</h2><p>你完成了{lesson.steps.length}个步骤和一道理解检查。可以继续问我，也可以切换学习方式查看同一份进度。</p><button className="coach-text-action" type="button" onClick={() => { setPhase("intro"); setStepIndex(0); }}>再听一遍这门课</button></section>;
+  return <section className="coach-lesson-card coach-lesson-complete" aria-live="polite"><div className="coach-complete-mark"><Check aria-hidden="true" size={32} /></div><p className="coach-kicker">学习记录已经同步</p><h2>这门课学会了</h2><p>做得很好。你可以继续问我，也可以休息一下，下次我会从这里接着陪你学。</p><button className="coach-text-action" type="button" onClick={() => { setPhase("step"); setStepIndex(0); }}>再听老师讲一遍</button></section>;
 }
 
 function CoachMediaCard({ asset }: { asset: MediaAsset }) {
