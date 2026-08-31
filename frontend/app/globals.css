@@ -566,8 +566,9 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .academy-navigation { min-height: 58px; }
 .academy-home::before { position: fixed; background: linear-gradient(180deg, #fffefb 0%, #fff 46%, #f6f8f7 100%); }
 .academy-home::after { display: none; }
-.academy-welcome { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 13px; padding: 18px 5px 16px; }
+.academy-welcome { padding: 18px 5px 16px; }
 .academy-version-selector { position: relative; z-index: 20; }
+.academy-version-selector--icon { width: 46px; height: 46px; }
 .academy-badge { display: inline-flex; min-height: 48px; align-items: center; gap: 7px; border: 0; border-radius: 999px; background: var(--mint); padding: 8px 13px; color: #195f3f; font-size: 13px; font-weight: 800; white-space: nowrap; }
 .academy-badge > svg:last-child { margin-left: 1px; opacity: .72; }
 .academy-badge[aria-expanded="true"] { box-shadow: inset 0 0 0 2px rgb(25 95 63 / 18%); }
@@ -575,13 +576,13 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .academy-version-menu > a { display: grid; min-height: 64px; grid-template-columns: 40px minmax(0, 1fr) 20px; align-items: center; gap: 10px; border-radius: 15px; padding: 8px 10px; color: var(--ink); }
 .academy-version-menu > a + a { margin-top: 4px; }
 .academy-version-menu > a.is-current { background: #f0faf3; color: #195f3f; }
-.academy-version-menu > a:not(.is-current) { grid-template-columns: 40px minmax(0, 1fr); }
+.academy-version-menu > a:not(.is-current) { grid-template-columns: 40px minmax(0, 1fr) 20px; }
 .academy-version-icon { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 13px; background: var(--sky); color: var(--ink-soft); }
 .academy-version-menu .is-current .academy-version-icon { background: #fff; color: #195f3f; }
 .academy-version-menu strong, .academy-version-menu small { display: block; }
 .academy-version-menu strong { font-size: 15px; }
 .academy-version-menu small { margin-top: 2px; color: var(--helper); font-size: 11px; line-height: 1.35; }
-.academy-welcome-copy { min-width: 0; }
+.academy-welcome-copy { display: grid; min-width: 0; grid-template-columns: auto minmax(0, 1fr); align-items: end; gap: 18px; }
 .academy-welcome h1 { margin: 0; color: var(--ink); font-size: clamp(26px, 6vw, 34px); letter-spacing: -.045em; line-height: 1.08; }
 .academy-welcome .academy-lead { max-width: 28ch; margin: 4px 0 0; color: #52636b; font-size: 13px; font-weight: 650; line-height: 1.45; }
 .home-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
@@ -696,6 +697,19 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .career-stage-card h2 { margin: 2px 0 0; color: var(--ink); font-size: 20px; line-height: 1.3; }
 .career-stage-card p { margin: 7px 0 0; color: #4e6068; font-size: 14px; line-height: 1.6; }
 .career-stage-card strong { display: inline-flex; align-items: center; gap: 5px; margin-top: 9px; color: var(--ink-soft); font-size: 12px; }
+.career-status-card { margin-top: 10px; border: 1px solid rgb(8 48 76 / 9%); border-radius: 23px; background: linear-gradient(145deg, #fff 0%, #f1faf4 100%); padding: 18px; box-shadow: var(--shadow-soft); }
+.career-status-card > h2 { margin: 4px 0 0; color: var(--ink); font-size: 24px; letter-spacing: -.03em; line-height: 1.3; }
+.career-status-card > p:not(.section-kicker) { margin: 8px 0 0; color: #455861; font-size: 14px; line-height: 1.6; }
+.career-status-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin: 15px 0 0; padding: 0; list-style: none; }
+.career-status-steps li { display: grid; min-width: 0; min-height: 62px; align-content: center; justify-items: center; gap: 3px; border-radius: 14px; background: #edf1f1; padding: 7px 3px; color: #758188; font-size: 11px; font-weight: 800; text-align: center; }
+.career-status-steps li.is-complete { background: var(--mint); color: #195f3f; }
+.career-status-steps li.is-current { box-shadow: inset 0 0 0 2px rgb(8 78 118 / 30%); background: var(--sky); color: var(--ink); }
+.career-status-steps small { border-radius: 999px; background: #fff; padding: 1px 5px; color: var(--ink-soft); font-size: 9px; }
+.career-status-primary { display: flex; min-height: 54px; align-items: center; justify-content: space-between; gap: 10px; margin-top: 15px; border-radius: 27px; background: var(--ink); padding: 10px 17px; color: #fff; font-size: 16px; font-weight: 850; }
+.career-status-return { display: flex; min-height: 48px; align-items: center; justify-content: center; gap: 7px; margin-top: 5px; color: var(--ink-soft); font-size: 14px; font-weight: 800; }
+.career-status-loader { margin-right: 8px; animation: coach-spin 900ms linear infinite; vertical-align: middle; }
+.career-status-card--error { background: #fff6f4; }
+.career-status-card--error > a { display: inline-flex; min-height: 48px; align-items: center; color: var(--ink); font-weight: 800; }
 .career-certificate-note { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 11px; margin-top: 8px; border-radius: 21px; background: #fff6e9; padding: 17px; color: #68441e; }
 .career-certificate-note strong { font-size: 16px; }
 .career-certificate-note p { margin: 5px 0 0; font-size: 13px; line-height: 1.65; }
@@ -711,6 +725,7 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .large-text .academy-shortcuts small { overflow: visible; text-overflow: clip; }
 .large-text .career-region-options button { font-size: 17px; }
 .large-text .career-region-result > p:not(.career-region-safe), .large-text .career-region-safe, .large-text .career-region-links a { font-size: 15px; }
+.large-text .career-status-card > p:not(.section-kicker) { font-size: 16px; }
 
 @media (min-width: 560px) {
   .career-region-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -722,8 +737,8 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
   .home-controls > button, .home-controls > a { min-height: 72px; grid-template-columns: 1fr; justify-items: center; gap: 3px; padding: 7px 3px; text-align: center; }
   .home-controls svg { grid-row: auto; }
   .home-controls small { display: none; }
-  .academy-welcome { gap: 9px; padding-inline: 0; }
-  .academy-badge { padding-inline: 10px; font-size: 12px; }
+  .academy-welcome { padding-inline: 0; }
+  .academy-welcome-copy { gap: 10px; }
   .academy-welcome h1 { font-size: 25px; }
   .academy-welcome .academy-lead { font-size: 12px; }
   .career-stage-card { grid-template-columns: 42px minmax(0, 1fr); padding: 13px; }
@@ -898,6 +913,16 @@ button:not(:disabled), a { cursor: pointer; touch-action: manipulation; }
 .coach-kicker { margin: 22px 0 0; color: #27694b; font-size: 13px; font-weight: 800; letter-spacing: .05em; }
 .coach-welcome h1 { max-width: 14ch; margin: 8px 0 0; color: var(--ink); font-size: clamp(35px, 8.5vw, 52px); letter-spacing: -.045em; line-height: 1.14; text-wrap: balance; }
 .coach-welcome-copy { max-width: 34ch; margin: 18px 0 0; color: #425763; font-size: 18px; line-height: 1.75; }
+.coach-journey-prompt { max-width: 590px; margin-top: 24px; border: 1px solid rgb(39 139 101 / 18%); border-radius: 23px; background: linear-gradient(145deg, #f0faf3 0%, #f5f9ff 100%); padding: 17px; box-shadow: var(--shadow-soft); }
+.coach-journey-label { display: flex; align-items: center; gap: 7px; color: #27694b; font-size: 13px; }
+.coach-journey-main { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: start; gap: 11px; margin-top: 12px; }
+.coach-journey-main > span { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 15px; background: #fff; color: var(--ink-soft); }
+.coach-journey-main h2 { margin: 0; color: var(--ink); font-size: 19px; line-height: 1.35; }
+.coach-journey-main p { margin: 4px 0 0; color: #4b6069; font-size: 13px; line-height: 1.55; }
+.coach-journey-prompt > button, .coach-journey-prompt > a { display: flex; width: 100%; min-height: 52px; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; border: 0; border-radius: 26px; background: #2f7f66; padding: 10px 16px; color: #fff; font-size: 15px; font-weight: 850; }
+.coach-journey-prompt > button:disabled { opacity: .58; }
+.coach-journey-note { display: flex; align-items: flex-start; gap: 6px; margin: 10px 2px 0; color: #62747c; font-size: 11px; line-height: 1.5; }
+.coach-journey-note svg { flex: 0 0 auto; margin-top: 1px; }
 
 .coach-suggestions { display: grid; max-width: 590px; gap: 10px; margin-top: 30px; }
 .coach-suggestions button {

@@ -1,7 +1,9 @@
 "use client";
 
-import { BookOpenCheck, GraduationCap, House, NotebookTabs } from "lucide-react";
+import { BookOpenCheck, House, NotebookTabs } from "lucide-react";
 import Link from "next/link";
+
+import { HomeVersionSelector } from "@/features/home/HomeVersionSelector";
 
 type CurrentPage = "home" | "records" | "tools";
 
@@ -15,9 +17,7 @@ export function PillNav({ current }: { current?: CurrentPage }) {
   return (
     <div className="academy-pill-nav-container">
       <nav className="academy-pill-nav" aria-label="主要导航">
-        <Link className="academy-pill-logo" href="/" aria-label="阿嬷学院首页">
-          <GraduationCap aria-hidden="true" size={23} strokeWidth={2.2} />
-        </Link>
+        <HomeVersionSelector />
         <ul className="academy-pill-list">
           {items.map((item) => {
             const Icon = item.icon;

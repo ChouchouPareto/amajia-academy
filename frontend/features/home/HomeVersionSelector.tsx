@@ -2,11 +2,14 @@
 
 import { BookOpenCheck, Bot, Check, ChevronDown, GraduationCap } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-export function HomeVersionSelector() {
+export function HomeVersionSelector({ variant = "icon" }: { variant?: "icon" | "badge" }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+  const coachMode = pathname.startsWith("/coach");
 
   useEffect(() => {
     if (!open) return;
@@ -28,29 +31,30 @@ export function HomeVersionSelector() {
   }, [open]);
 
   return (
-    <div className="academy-version-selector" ref={containerRef}>
+    <div className={`academy-version-selector academy-version-selector--${variant}`} ref={containerRef}>
       <button
-        className="academy-badge"
+        className={variant === "icon" ? "academy-pill-logo" : "academy-badge"}
         type="button"
         aria-expanded={open}
         aria-controls="academy-version-menu"
+        aria-label={`当前为${coachMode ? "AI 专业陪学版" : "基础学习版"}，选择学习版本`}
         onClick={() => setOpen((value) => !value)}
       >
-        <GraduationCap aria-hidden="true" size={18} />
-        <span>家政入门内测版</span>
-        <ChevronDown aria-hidden="true" size={16} />
+        <GraduationCap aria-hidden="true" size={variant === "icon" ? 23 : 18} strokeWidth={2.2} />
+        {variant === "badge" && <><span>家政入门内测版</span><ChevronDown aria-hidden="true" size={16} /></>}
       </button>
 
       {open && (
         <div className="academy-version-menu" id="academy-version-menu" aria-label="选择学习版本">
-          <Link href="/" className="is-current" onClick={() => setOpen(false)}>
+          <Link href="/" className={!coachMode ? "is-current" : ""} onClick={() => setOpen(false)}>
             <span className="academy-version-icon"><BookOpenCheck aria-hidden="true" size={20} /></span>
             <span><strong>基础学习版</strong><small>自己按课程学习</small></span>
-            <Check aria-hidden="true" size={19} />
+            {!coachMode && <Check aria-hidden="true" size={19} />}
           </Link>
-          <Link href="/coach" onClick={() => setOpen(false)}>
+          <Link href="/coach" className={coachMode ? "is-current" : ""} onClick={() => setOpen(false)}>
             <span className="academy-version-icon"><Bot aria-hidden="true" size={20} /></span>
             <span><strong>AI 专业陪学版</strong><small>测试期免费 · 对话式陪学</small></span>
+            {coachMode && <Check aria-hidden="true" size={19} />}
           </Link>
         </div>
       )}

@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 
 import { RegionalCareerGuide } from "./RegionalCareerGuide";
+import { CareerPathStatus } from "./CareerPathStatus";
 
 const stages = [
   { icon: ClipboardCheck, title: "了解基础", meta: "线上 · 约5分钟", body: "先做入门测一测，知道自己从哪里开始。", state: "现在可以开始" },
@@ -63,6 +64,8 @@ export function CareerPathOverview() {
           );
         })}
       </section>
+
+      <CareerPathStatus />
 
       <aside className="career-certificate-note">
         <Award aria-hidden="true" size={24} />

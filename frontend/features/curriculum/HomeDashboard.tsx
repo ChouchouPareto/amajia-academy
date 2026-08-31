@@ -8,7 +8,6 @@ import { AppHeader } from "@/components/AppHeader";
 import { AppError, getLearningOverview } from "@/lib/api";
 import type { LearningOverview } from "@/lib/types";
 import { HomeControls } from "@/features/home/HomeControls";
-import { HomeVersionSelector } from "@/features/home/HomeVersionSelector";
 
 const actions = {
   start_pre_assessment: { href: "/assessment/pre", eyebrow: "先了解现在的基础", title: "开始家政入门测一测", copy: "12道小题，不计考试，只用来推荐学习顺序。", button: "开始测一测" },
@@ -36,7 +35,6 @@ export function HomeDashboard() {
     <main id="main-content" className="home-shell academy-home">
       <AppHeader current="home" />
       <section className="academy-welcome">
-        <HomeVersionSelector />
         <div className="academy-welcome-copy"><h1>阿嬷学院</h1><p className="academy-lead">从家政入门，一步一步学到上岗准备。</p></div>
       </section>
 

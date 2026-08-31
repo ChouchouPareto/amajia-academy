@@ -6,8 +6,10 @@ import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { SpeakButton } from "@/components/SpeakButton";
-import { answerQuestion, AppError, confirmQuestion, createCoachConversation, createQuestion, getCoachConversationQuestions, getCoachConversations, getLearningMedia, saveLearningProgress, submitQuiz } from "@/lib/api";
-import type { CoachConversation, LearningSession, MediaAsset, QuestionRequest } from "@/lib/types";
+import { CoachJourneyPrompt } from "@/features/coach/CoachJourneyPrompt";
+import { HomeVersionSelector } from "@/features/home/HomeVersionSelector";
+import { answerQuestion, AppError, confirmQuestion, createCoachConversation, createQuestion, getCoachConversationQuestions, getCoachConversations, getLearningMedia, getLearningOverview, saveLearningProgress, startHousekeepingCourse, submitQuiz } from "@/lib/api";
+import type { CoachConversation, LearningOverview, LearningSession, MediaAsset, QuestionRequest } from "@/lib/types";
 
 const examples = ["厨房油污，应该先擦哪里？", "清洁剂为什么不能随便混用？", "洗衣前应该先检查什么？"];
 type SpeechEvent = { results: ArrayLike<{ 0: { transcript: string } }> };
@@ -36,6 +38,8 @@ export function AskForm({ initialQuestion, initialConversationId }: { initialQue
   const [listening, setListening] = useState(false);
   const [conversationId, setConversationId] = useState<number | null>(initialConversationId ?? null);
   const [conversations, setConversations] = useState<CoachConversation[]>([]);
+  const [overview, setOverview] = useState<LearningOverview | null>(null);
+  const [startingJourney, setStartingJourney] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -65,6 +69,12 @@ export function AskForm({ initialQuestion, initialConversationId }: { initialQue
     void restoreConversation();
     return () => { active = false; };
   }, [initialConversationId]);
+
+  useEffect(() => {
+    let active = true;
+    getLearningOverview().then((value) => { if (active) setOverview(value); }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => { if (result) requestAnimationFrame(() => resultRef.current?.focus()); }, [result]);
   useEffect(() => {
@@ -119,26 +129,43 @@ export function AskForm({ initialQuestion, initialConversationId }: { initialQue
     setLearningSession(await confirmQuestion(result.id));
   }
 
+  async function continueJourneyCourse() {
+    if (!overview?.recommended_course_id) return;
+    setStartingJourney(true); setError("");
+    try {
+      setResult(null);
+      setLearningSession(await startHousekeepingCourse(overview.recommended_course_id));
+    } catch (caught) {
+      setError(caught instanceof AppError ? caught.message : "下一门课暂时打不开，请稍后再试。");
+      requestAnimationFrame(() => errorRef.current?.focus());
+    } finally { setStartingJourney(false); }
+  }
+
+  function refreshOverview() {
+    getLearningOverview().then(setOverview).catch(() => undefined);
+  }
+
   return <main id="main-content" className="coach-shell">
     <header className="coach-topbar">
-      <button className="coach-icon-button" type="button" onClick={() => setDrawerOpen(true)} aria-label="打开学习菜单" aria-expanded={drawerOpen}><Menu aria-hidden="true" size={27} /></button>
+      <HomeVersionSelector />
       <div className="coach-brand" aria-label="阿嬷学院 AI 陪学"><strong>阿嬷 AI 老师</strong><span>家政入门陪学</span></div>
-      <Link className="coach-icon-button" href="/choose-mode" aria-label="切换学习方式"><Repeat2 aria-hidden="true" size={25} /></Link>
+      <button className="coach-icon-button" type="button" onClick={() => setDrawerOpen(true)} aria-label="打开学习菜单" aria-expanded={drawerOpen}><Menu aria-hidden="true" size={27} /></button>
     </header>
     <CoachDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} conversations={conversations} currentConversationId={conversationId} />
 
     <section className={`coach-stage ${result ? "has-result" : ""}`} aria-label="AI 陪学对话">
-      {!result && <div className="coach-welcome">
+      {!result && !learningSession && <div className="coach-welcome">
         <div className="coach-avatar" aria-hidden="true"><Bot size={30} /></div>
         <p className="coach-kicker">专业版测试期免费</p>
         <h1>你好，我是阿嬷 AI 老师</h1>
         <p className="coach-welcome-copy">我会陪你学家政。可以打字，也可以直接说，今天想先问什么？</p>
+        {overview && <CoachJourneyPrompt overview={overview} starting={startingJourney} onContinueCourse={() => void continueJourneyCourse()} />}
         <div className="coach-suggestions" aria-label="推荐问题">{examples.map((example) => <button key={example} type="button" onClick={() => chooseExample(example)}><span>{example}</span><ArrowRight aria-hidden="true" size={20} /></button>)}</div>
       </div>}
-      {result && <div className="coach-thread">
-        <article className="coach-user-turn" aria-label="你的问题"><span>你问</span><p>{result.original_text}</p></article>
-        <QuestionResult ref={resultRef} result={result} learningStarted={Boolean(learningSession)} onContinue={continueLearning} onAskAgain={askAgain} />
-        {learningSession && <CoachLesson session={learningSession} onSessionChange={setLearningSession} />}
+      {(result || learningSession) && <div className="coach-thread">
+        {result && <article className="coach-user-turn" aria-label="你的问题"><span>你问</span><p>{result.original_text}</p></article>}
+        {result && <QuestionResult ref={resultRef} result={result} learningStarted={Boolean(learningSession)} onContinue={continueLearning} onAskAgain={askAgain} />}
+        {learningSession && <CoachLesson session={learningSession} onSessionChange={setLearningSession} onCompleted={refreshOverview} />}
       </div>}
     </section>
 
@@ -198,7 +225,7 @@ function QuestionResult({ ref, result, learningStarted, onContinue, onAskAgain }
   </section>;
 }
 
-function CoachLesson({ session, onSessionChange }: { session: LearningSession; onSessionChange: (session: LearningSession) => void }) {
+function CoachLesson({ session, onSessionChange, onCompleted }: { session: LearningSession; onSessionChange: (session: LearningSession) => void; onCompleted: () => void }) {
   const [phase, setPhase] = useState<"intro" | "step" | "quiz" | "complete">(session.status === "completed" ? "complete" : "intro");
   const [stepIndex, setStepIndex] = useState(session.current_step);
   const [answer, setAnswer] = useState("");
@@ -229,7 +256,7 @@ function CoachLesson({ session, onSessionChange }: { session: LearningSession; o
     try {
       const checked = await submitQuiz(session.id, answer);
       onSessionChange(checked.session); setFeedback(checked.message);
-      if (checked.correct) window.setTimeout(() => setPhase("complete"), 500);
+      if (checked.correct) window.setTimeout(() => { setPhase("complete"); onCompleted(); }, 500);
     } catch (caught) { setFeedback(caught instanceof AppError ? caught.message : "答案没有提交成功，请再试一次。"); }
     finally { setSaving(false); }
   }

@@ -31,8 +31,11 @@
   place-items: center;
   border-radius: 50%;
   background: #e8f1ff;
-  color: var(--pill-base);
+  color: var(--pill-base, #08304c);
+  border: 0;
 }
+
+.academy-version-selector--icon .academy-version-menu { top: calc(100% + 10px); }
 
 .academy-pill-list {
   display: grid;
