@@ -109,19 +109,21 @@ def seed_development_invitations(db: Session) -> None:
         return
     seeds = (
         (
-            os.getenv("LEARNER_INVITE_CODE", "INVITE_CODE_REMOVED"),
+            os.getenv("LEARNER_INVITE_CODE", "").strip(),
             "本地学习测试账号",
             "learner",
             "amajia-v040-local-test-user",
         ),
         (
-            os.getenv("ADMIN_INVITE_CODE", "INVITE_CODE_REMOVED"),
+            os.getenv("ADMIN_INVITE_CODE", "").strip(),
             "本地内容管理员",
             "content_admin",
             None,
         ),
     )
     for raw_code, label, role, legacy_key in seeds:
+        if not raw_code:
+            continue
         code_hash = hash_secret(normalize_code(raw_code))
         if db.scalar(select(Invitation).where(Invitation.code_hash == code_hash)):
             continue

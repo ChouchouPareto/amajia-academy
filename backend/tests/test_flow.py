@@ -1,10 +1,13 @@
 import os
+import secrets
 from pathlib import Path
 
 TEST_DB = Path(__file__).parent / "phase1-test.db"
 if TEST_DB.exists():
     TEST_DB.unlink()
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB}"
+os.environ["LEARNER_INVITE_CODE"] = secrets.token_urlsafe(24)
+os.environ["ADMIN_INVITE_CODE"] = secrets.token_urlsafe(24)
 
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -23,7 +26,8 @@ from app.db import engine  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 
-def login_with_invite(client: TestClient, code: str = "INVITE_CODE_REMOVED", name: str = "体验学员"):
+def login_with_invite(client: TestClient, code: str | None = None, name: str = "体验学员"):
+    code = code or os.environ["LEARNER_INVITE_CODE"]
     response = client.post(
         "/api/v1/auth/invite-login",
         json={
@@ -592,7 +596,7 @@ def test_role_authorization_logout_and_account_deletion():
 
         with TestClient(app) as admin_client:
             admin = login_with_invite(
-                admin_client, "INVITE_CODE_REMOVED", "内容管理员"
+                admin_client, os.environ["ADMIN_INVITE_CODE"], "内容管理员"
             )
             assert admin["role"] == "content_admin"
             assert admin_client.get("/api/v1/admin/course-versions").status_code == 200
@@ -638,7 +642,7 @@ def test_role_authorization_logout_and_account_deletion():
         assert learner_client.post(
             "/api/v1/auth/invite-login",
             json={
-                "invitation_code": "INVITE_CODE_REMOVED",
+                "invitation_code": os.environ["LEARNER_INVITE_CODE"],
                 "display_name": "体验学员",
                 "consent_accepted": True,
                 "consent_version": "2026-08-28-v1",
