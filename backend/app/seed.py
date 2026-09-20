@@ -2,19 +2,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .models import CourseVersion, LearningSession, Lesson
+from .content_catalog_v1 import CONTENT_VERSION, COURSE_META, COURSES
 
 
-COURSE_META = {
-    "housekeeping-work-basics": {"code": "H01", "summary": "认识家政工作的基本边界、守时、沟通与物品保护。", "minutes": 8},
-    "cleaner-safety": {"code": "H02", "summary": "看懂标签，保持通风，记住清洁剂不能随意混用。", "minutes": 9},
-    "kitchen-order": {"code": "H03", "summary": "按正确顺序完成普通家庭厨房的基础清洁。", "minutes": 8},
-    "bathroom-safety": {"code": "H04", "summary": "分区使用工具，降低交叉污染和化学品风险。", "minutes": 10},
-    "home-organize": {"code": "H05", "summary": "从小区域开始整理，并保护客户的隐私物品。", "minutes": 8},
-    "laundry-basics": {"code": "H06", "summary": "先看洗标和颜色，再选择合适的基础洗涤方式。", "minutes": 9},
-}
-
-
-COURSES = [
+LEGACY_COURSES = [
     {
         "id": "housekeeping-work-basics", "title": "认识家政工作与基本规范", "domain": "housekeeping", "risk_level": "L0",
         "disclaimer": "本课是职业入门知识，不等同于职业培训、实操认证或就业保证。",
@@ -92,26 +83,39 @@ COURSES = [
 
 def seed_lessons(db: Session) -> None:
     for payload in COURSES:
+        lesson_payload = {
+            key: payload[key]
+            for key in ("id", "title", "domain", "risk_level", "disclaimer", "conclusion", "steps", "quiz", "content_status")
+        }
         lesson = db.get(Lesson, payload["id"])
         if lesson is None:
-            lesson = Lesson(**payload)
+            lesson = Lesson(**lesson_payload)
             db.add(lesson)
             db.flush()
         else:
-            for key, value in payload.items():
+            for key, value in lesson_payload.items():
                 setattr(lesson, key, value)
-        version = db.scalar(select(CourseVersion).where(CourseVersion.course_id == payload["id"], CourseVersion.version == 1))
+        version = db.scalar(select(CourseVersion).where(CourseVersion.course_id == payload["id"], CourseVersion.version == CONTENT_VERSION))
         if version is None:
-            version = CourseVersion(course_id=payload["id"], version=1, objectives=[payload["conclusion"]], source_refs=[], review_status="pending")
+            version = CourseVersion(
+                course_id=payload["id"],
+                version=CONTENT_VERSION,
+                objectives=payload.get("objectives", [payload["conclusion"]]),
+                source_refs=payload.get("source_refs", []),
+                review_status="draft",
+                created_by="official-source-catalog-v0.1",
+            )
             db.add(version)
-        version.title = version.title or payload["title"]
-        version.summary = version.summary or COURSE_META[payload["id"]]["summary"]
-        version.risk_level = version.risk_level or payload["risk_level"]
-        version.disclaimer = version.disclaimer or payload["disclaimer"]
-        version.conclusion = version.conclusion or payload["conclusion"]
-        version.steps = version.steps or payload["steps"]
-        version.quiz = version.quiz or payload["quiz"]
-        if version.review_status == "pending":
+        if version.review_status in ("pending", "draft", "rejected"):
+            version.title = payload["title"]
+            version.summary = COURSE_META[payload["id"]]["summary"]
+            version.risk_level = payload["risk_level"]
+            version.disclaimer = payload["disclaimer"]
+            version.conclusion = payload["conclusion"]
+            version.objectives = payload.get("objectives", [payload["conclusion"]])
+            version.source_refs = payload.get("source_refs", [])
+            version.steps = payload["steps"]
+            version.quiz = payload["quiz"]
             version.review_status = "draft"
     legacy = db.get(Lesson, "bedtime-order")
     if legacy is not None:

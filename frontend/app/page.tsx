@@ -1,5 +1,5 @@
-import { HomeDashboard } from "@/features/curriculum/HomeDashboard";
+import { AccountHome } from "@/features/home/AccountHome";
 
 export default function HomePage() {
-  return <HomeDashboard />;
+  return <AccountHome />;
 }

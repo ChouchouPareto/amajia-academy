@@ -6,7 +6,7 @@ import Link from "next/link";
 type CurrentPage = "home" | "records" | "tools";
 
 const items = [
-  { href: "/", label: "首页", key: "home", icon: House },
+  { href: "/basic", label: "首页", key: "home", icon: House },
   { href: "/housekeeping", label: "家政课", key: "tools", icon: BookOpenCheck },
   { href: "/records", label: "我的学习", key: "records", icon: NotebookTabs },
 ] as const;

@@ -1,6 +1,6 @@
 {
   "name": "amajia-academy-frontend",
-  "version": "0.5.1",
+  "version": "0.5.2-beta.2",
   "private": true,
   "engines": {
     "node": ">=22 <25"
@@ -10,7 +10,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "test:ui": "node scripts/ui-v2.smoke.cjs"
   },
   "dependencies": {
     "lucide-react": "0.468.0",

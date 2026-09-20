@@ -50,5 +50,5 @@ export function HomeControls() {
 }
 
 function CoursePanel() {
-  return <><p className="section-kicker">课程选择</p><h2 id="home-modal-title">选择学习方向</h2><div className="course-switch-list"><Link href="/housekeeping"><span><BookOpenCheck aria-hidden="true" size={22} /></span><div><strong>家政入门</strong><small>当前开放 · 6门基础课</small></div><Check aria-hidden="true" size={21} /></Link><div aria-disabled="true"><span>02</span><div><strong>更多职业方向</strong><small>后续经过调研和审核后开放</small></div></div></div></>;
+  return <><p className="section-kicker">课程选择</p><h2 id="home-modal-title">选择学习方向</h2><div className="course-switch-list"><Link href="/housekeeping"><span><BookOpenCheck aria-hidden="true" size={22} /></span><div><strong>家政入门</strong><small>当前开放 · 12门就业入门课</small></div><Check aria-hidden="true" size={21} /></Link><div aria-disabled="true"><span>02</span><div><strong>更多职业方向</strong><small>后续经过调研和审核后开放</small></div></div></div></>;
 }

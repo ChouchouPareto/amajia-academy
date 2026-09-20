@@ -80,15 +80,15 @@ class StartLessonIn(BaseModel):
 class QuestionIn(BaseModel):
     user_id: int
     conversation_id: int | None = None
-    text: str = Field(min_length=4, max_length=200)
+    text: str = Field(min_length=1, max_length=200)
     idempotency_key: str = Field(min_length=8, max_length=80)
 
     @field_validator("text")
     @classmethod
     def question_must_have_content(cls, value: str) -> str:
         normalized = value.strip()
-        if len(normalized) < 4:
-            raise ValueError("请再多写一点")
+        if not normalized:
+            raise ValueError("请先说一句话")
         return normalized
 
 
@@ -216,6 +216,31 @@ class QuizResult(BaseModel):
     session: SessionOut
 
 
+class CoachTurnIn(BaseModel):
+    action: str = Field(pattern=r"^(start_or_resume|continue|explain_again|submit_check|pause)$")
+    course_id: str | None = Field(default=None, max_length=80)
+    session_id: int | None = Field(default=None, ge=1)
+    answer: str | None = Field(default=None, max_length=80)
+    expected_step: int | None = Field(default=None, ge=0, le=20)
+    expected_quiz_attempts: int | None = Field(default=None, ge=0, le=100)
+
+
+class CoachTurnOut(BaseModel):
+    phase: str
+    reply_text: str
+    speech_text: str
+    next_action: str
+    correct: bool | None = None
+    session: SessionOut
+    media: list[MediaAssetOut] = Field(default_factory=list)
+    ui_blocks: list[dict[str, object]] = Field(default_factory=list)
+    agent_trace_id: str
+    skill_key: str
+    skill_version: str
+    prompt_version: str | None
+    tool_calls: list[str] = Field(default_factory=list)
+
+
 class ErrorDetail(BaseModel):
     code: str
     message: str
@@ -327,6 +352,26 @@ class LearningOverviewOut(BaseModel):
     recommended_course_id: str | None
     post_assessment_status: str
     report_status: str
+
+
+class MasteryModuleOut(BaseModel):
+    course_id: str
+    title: str
+    knowledge_point: str
+    score: int
+    status: str
+    safety_attention: bool
+    evidence: list[str]
+
+
+class MasteryOverviewOut(BaseModel):
+    version: str
+    modules: list[MasteryModuleOut]
+    mastered_count: int
+    total_count: int
+    recommended_course_id: str | None
+    recommended_title: str | None
+    recommendation_reason: str | None
 
 
 class AssessmentStartIn(BaseModel):

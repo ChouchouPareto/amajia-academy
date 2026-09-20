@@ -1,4 +1,7 @@
-ASSESSMENT_VERSION = "v0.4-test-2"
+from .housekeeping_question_bank_v1 import assessment_set
+
+
+ASSESSMENT_VERSION = "v0.5-test-3"
 
 SOURCE_IDS = {
     "beijing-contract",
@@ -11,6 +14,11 @@ SOURCE_IDS = {
     "pingdingshan-home-service",
     "sz-health-cleaners",
     "urumqi-home-cleaning",
+    "mohrss-standard-2019",
+    "mofcom-rules",
+    "mofcom-convention-2024",
+    "fire-home-2024",
+    "osta-query",
 }
 
 
@@ -67,3 +75,7 @@ POST_QUESTIONS_V2 = [
     q("post-h06-a", "衣物洗涤", "一件衣物的洗标看不懂，最稳妥的做法是什么？", ("用最强洗涤程序", "暂停处理，先向客户确认", "和其他衣物一起洗"), "b", ("pingdingshan-home-service", "mofcom-convention")),
     q("post-h06-b", "衣物洗涤", "为了洗得更干净，洗涤剂是不是放得越多越好？", ("是，越多越干净", "只要泡沫多就行", "不是，应按产品说明和衣物情况使用"), "c", ("pingdingshan-home-service", "gd-housekeeping-standard")),
 ]
+
+
+PRE_QUESTIONS_V3 = assessment_set(1)
+POST_QUESTIONS_V3 = assessment_set(2)

@@ -10,10 +10,14 @@ __pycache__/
 backend/data/*.db
 frontend/node_modules/
 frontend/.next/
+frontend/.next-ui-v2/
 frontend/out/
 frontend/.env.local
 frontend/next-env.d.ts
 frontend/*.tsbuildinfo
-**/AI Agent 产品上线部署手册.md
-**/AI产品Vibe Coding通用前端技术栈手册.md
-**/AI产品Vibe Coding通用技术栈手册.md
+**/*手册*.md
+docs/private/
+**/*.bundle
+**/*.db
+**/*.sqlite
+**/*.sqlite3

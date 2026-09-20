@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 
-SkillOutput = Literal["teacher_text", "lesson_flow", "choice_check", "review_plan"]
+SkillOutput = Literal["teacher_text", "lesson_flow", "choice_check", "review_plan", "progress_guidance", "intent_route"]
 
 
 @dataclass(frozen=True)
@@ -24,6 +24,24 @@ class CoachSkill:
 
 
 SKILLS: dict[str, CoachSkill] = {
+    "understand_coach_intent": CoachSkill(
+        key="understand_coach_intent",
+        version="1.0.0",
+        title="理解陪学意图",
+        purpose="结合近期对话理解口语、省略与指代",
+        trigger_examples=("这个差不多了", "那我下一步呢"),
+        allowed_tools=("get_recent_conversation",),
+        output="intent_route",
+    ),
+    "guide_learning_progress": CoachSkill(
+        key="guide_learning_progress",
+        version="1.0.0",
+        title="进度陪跑与下一步",
+        purpose="依据真实学习状态回应进度，推荐下一个行动",
+        trigger_examples=("入门学得差不多了", "我接下来学什么"),
+        allowed_tools=("get_learning_state",),
+        output="progress_guidance",
+    ),
     "answer_housekeeping_question": CoachSkill(
         key="answer_housekeeping_question",
         version="1.0.0",
@@ -77,4 +95,3 @@ def validate_tool_request(skill_key: str, tool_name: str) -> None:
     skill = get_skill(skill_key)
     if tool_name not in skill.allowed_tools:
         raise ValueError(f"Tool {tool_name} is not allowed for skill {skill_key}")
-

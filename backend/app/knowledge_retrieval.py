@@ -46,6 +46,12 @@ COURSE_HINTS: dict[str, tuple[str, ...]] = {
     "bathroom-safety": ("卫生间", "厕所", "马桶", "湿滑", "分区"),
     "home-organize": ("收纳", "整理", "物品", "丢弃", "分类"),
     "laundry-basics": ("洗衣", "衣物", "洗标", "口袋", "分类"),
+    "service-confirmation": ("确认", "合同", "新增", "贵重物品", "验收"),
+    "workplace-safety": ("燃气", "火灾", "触电", "滑倒", "高处", "急救"),
+    "home-cleaning-sop": ("全屋", "顺序", "从上到下", "先干后湿", "分区"),
+    "communication-handover": ("沟通", "异常", "报告", "交接", "验收"),
+    "employment-rights": ("求职", "合同", "证书", "工资", "社保", "防骗"),
+    "doorstep-simulation": ("上门", "完整流程", "接单", "验收", "复盘"),
 }
 
 

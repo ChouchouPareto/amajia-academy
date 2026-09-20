@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from .models import CourseVersion, QuestionRequest
 from .prompt_engineering import GROUNDED_HOUSEKEEPING_ANSWER
+from .runtime_config import ai_api_base, ai_api_key, ai_provider, coach_model
 
 
 PROMPT_VERSION = GROUNDED_HOUSEKEEPING_ANSWER.version
@@ -31,7 +32,7 @@ class AnswerResult:
 
 
 def model_configured() -> bool:
-    return bool(os.getenv("AI_API_BASE") and os.getenv("AI_API_KEY") and os.getenv("AI_MODEL"))
+    return bool(ai_api_base() and ai_api_key() and coach_model())
 
 
 def knowledge_refs(version: CourseVersion) -> list[dict[str, object]]:
@@ -68,10 +69,12 @@ def answer_from_published_knowledge(question: QuestionRequest, version: CourseVe
             latency_ms=round((time.perf_counter() - started) * 1000),
         )
 
-    api_base = os.environ["AI_API_BASE"].rstrip("/")
-    api_key = os.environ["AI_API_KEY"]
-    model = os.environ["AI_MODEL"]
-    provider = os.getenv("AI_PROVIDER", "openai-compatible")
+    api_base = ai_api_base()
+    api_key = ai_api_key()
+    model = coach_model()
+    provider = ai_provider()
+    if not api_base or not api_key or not model:
+        raise RuntimeError("AI configuration changed after capability check")
     context = {
         "title": version.title,
         "summary": version.summary,

@@ -185,6 +185,16 @@ class LearningSession(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class UserLearningPreference(Base):
+    __tablename__ = "user_learning_preferences"
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    preferred_mode: Mapped[str] = mapped_column(String(16), default="basic")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
 class CoachConversation(Base):
     __tablename__ = "coach_conversations"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

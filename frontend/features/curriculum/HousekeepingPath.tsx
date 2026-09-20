@@ -42,15 +42,15 @@ export function HousekeepingPath() {
   }
 
   const completed = courses?.filter((course) => course.progress_status === "completed").length ?? 0;
+  const total = courses?.length ?? 0;
 
   return (
     <main id="main-content" className="flow-shell curriculum-shell">
       <AppHeader current="tools" />
       <section className="curriculum-intro">
-        <p className="section-kicker">从第一门开始，慢慢学</p>
-        <h1>家政入门学习路径</h1>
-        <p>六门基础课，每节约8～10分钟。学到哪里都会自动保存。</p>
-        <div className="curriculum-summary"><strong>{completed}/6</strong><span>门已完成</span><div><i style={{ width: `${Math.round(completed / 6 * 100)}%` }} /></div></div>
+        <h1>家政课</h1>
+        <p>从第一门开始，学到哪里都会保存。</p>
+        <div className="curriculum-summary"><strong>{courses ? `${completed}/${total}` : "—"}</strong><span>门已完成</span><div><i style={{ width: `${total ? Math.round(completed / total * 100) : 0}%` }} /></div></div>
       </section>
       <div className="candidate-notice"><AlertCircle aria-hidden="true" size={21} /><div><strong>内部测试候选课程</strong><p>当前内容正在等待专业审核，暂不代表职业培训或实操认证。</p></div></div>
       {courses === null && !error && <div className="loading-card"><span className="loading-dots" aria-hidden="true"><i /><i /><i /></span><strong>正在准备课程</strong></div>}
@@ -73,7 +73,7 @@ export function HousekeepingPath() {
           </article>
         );
       })}</section>}
-      <p className="prototype-note">完成六门课程后，将开放家政综合后测</p>
+      <p className="prototype-note">完成入门课程后，将开放家政综合后测</p>
     </main>
   );
 }

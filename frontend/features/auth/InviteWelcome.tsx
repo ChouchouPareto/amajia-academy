@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowRight, Eye, EyeOff, GraduationCap, ShieldCheck } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -20,7 +21,7 @@ export function InviteWelcome() {
     setBusy(true);
     try {
       const user = await loginWithInvite(invitationCode.trim(), displayName.trim());
-      window.location.replace(user.role === "learner" ? "/choose-mode" : "/admin/content");
+      window.location.replace(user.role === "learner" ? "/" : "/admin/content");
     } catch (caught) {
       setError(caught instanceof AppError ? caught.message : "暂时无法进入，请检查邀请码后重试。");
     } finally {
@@ -31,7 +32,7 @@ export function InviteWelcome() {
   return (
     <main id="main-content" className="auth-shell">
       <section className="auth-intro">
-        <span className="auth-mark"><GraduationCap aria-hidden="true" size={27} /></span>
+        <span className="auth-mark"><Image src="/brand/ama-academy-symbol-v2.png" alt="" width={52} height={52} priority /></span>
         <p className="section-kicker">家政入门内部测试</p>
         <h1>欢迎来到<br />阿嬷学院</h1>
         <p>用负责人发给你的邀请码进入。每次只学一件事，学习位置会自动保存。</p>

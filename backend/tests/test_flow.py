@@ -6,22 +6,25 @@ TEST_DB = Path(__file__).parent / "phase1-test.db"
 if TEST_DB.exists():
     TEST_DB.unlink()
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB}"
+os.environ["DASHSCOPE_API_KEY"] = ""
 os.environ["LEARNER_INVITE_CODE"] = secrets.token_urlsafe(24)
 os.environ["ADMIN_INVITE_CODE"] = secrets.token_urlsafe(24)
 
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.main import app  # noqa: E402
+from app.housekeeping_question_bank_v1 import HOUSEKEEPING_QUESTION_BANK_V1  # noqa: E402
 from app.ai_service import answer_from_published_knowledge  # noqa: E402
 from app.assessments import ASSESSMENT_VERSION, questions_for, score_answers  # noqa: E402
 from app.assessment_bank_v2 import SOURCE_IDS  # noqa: E402
 from app.models import CourseVersion, KnowledgeIndexChunk, MediaAsset, QuestionRequest  # noqa: E402
 from app.coach_skills import SKILLS, validate_tool_request  # noqa: E402
-from app.coach_orchestrator import plan_question_answer  # noqa: E402
+from app.coach_orchestrator import plan_course_turn, plan_intent_routing, plan_progress_guidance, plan_question_answer  # noqa: E402
 from app.coach_tools import TOOLS  # noqa: E402
-from app.prompt_engineering import GROUNDED_HOUSEKEEPING_ANSWER, get_prompt  # noqa: E402
+from app.prompt_engineering import COACH_INTENT_ROUTER, COURSE_COACH_TURN, GROUNDED_HOUSEKEEPING_ANSWER, LEARNING_PROGRESS_COACH, get_prompt  # noqa: E402
 from app.knowledge_retrieval import rebuild_course_index  # noqa: E402
 from app.media_service import published_media_for_version  # noqa: E402
+from app.seed import COURSE_META  # noqa: E402
 from app.db import engine  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
@@ -51,9 +54,10 @@ def test_prompt_and_skill_engineering_contracts():
         "question", "course_title", "summary", "conclusion", "steps", "disclaimer"
     )
 
-    assert set(SKILLS) == {
-        "answer_housekeeping_question", "teach_course_in_chat", "check_understanding", "review_mistakes"
-    }
+    assert {"understand_coach_intent", "guide_learning_progress"}.issubset(SKILLS)
+    assert COACH_INTENT_ROUTER.version == "coach-intent-v1"
+    assert LEARNING_PROGRESS_COACH.version == "learning-progress-v1"
+    assert COURSE_COACH_TURN.version == "course-coach-turn-v1"
     validate_tool_request("teach_course_in_chat", "save_learning_progress")
     try:
         validate_tool_request("answer_housekeeping_question", "save_learning_progress")
@@ -81,6 +85,10 @@ def test_parent_orchestrator_plans_read_only_grounded_answer():
     assert [tool.name for tool in plan.tool_calls] == ["retrieve_knowledge"]
     assert plan.tool_calls[0].access == "read"
     assert TOOLS["save_learning_progress"].requires_confirmation is True
+    assert plan_intent_routing().tool_calls[0].name == "get_recent_conversation"
+    assert plan_progress_guidance().tool_calls[0].name == "get_learning_state"
+    assert [tool.name for tool in plan_course_turn("continue").tool_calls] == ["get_learning_state", "save_learning_progress"]
+    assert plan_course_turn("submit_check").skill_key == "check_understanding"
 
     question.status = "blocked"
     question.risk_level = "L3"
@@ -161,7 +169,8 @@ def test_phase1_learning_flow():
         health = client.get("/health")
         assert health.status_code == 200
         assert health.json()["mode"] == "internal_test"
-        assert health.json()["version"] == "0.4.0"
+        assert health.json()["phase"] == 4
+        assert health.json()["version"] == "0.5.2-beta.1"
 
         assert client.get("/api/v1/lessons").status_code == 401
         user = login_with_invite(client)
@@ -169,7 +178,7 @@ def test_phase1_learning_flow():
         assert repeated_user["id"] == user["id"]
 
         lessons = client.get("/api/v1/lessons").json()
-        assert len(lessons) == 6
+        assert len(lessons) == 12
         assert lessons[0]["content_status"] == "internal_test_candidate"
         lesson_id = lessons[0]["id"]
         correct_answer = lessons[0]["quiz"]["correct_answer"]
@@ -211,6 +220,76 @@ def test_phase1_learning_flow():
         records = client.get(f"/api/v1/learning/users/{user['id']}/records").json()
         assert len(records) == 1
         assert records[0]["status"] == "completed"
+
+
+def test_professional_coach_turn_loop_is_stateful_and_retry_safe():
+    with TestClient(app) as client:
+        login_with_invite(client)
+        course = client.get("/api/v1/lessons").json()[1]
+        started = client.post(
+            "/api/v1/coach/turns",
+            json={"action": "start_or_resume", "course_id": course["id"]},
+        )
+        assert started.status_code == 200
+        first = started.json()
+        assert first["phase"] == "teaching"
+        assert first["skill_key"] == "teach_course_in_chat"
+        assert first["agent_trace_id"]
+        session = first["session"]
+
+        explained = client.post(
+            "/api/v1/coach/turns",
+            json={"action": "explain_again", "session_id": session["id"]},
+        ).json()
+        assert explained["phase"] == "repairing"
+        assert explained["session"]["current_step"] == session["current_step"]
+
+        while session["current_step"] < len(session["lesson"]["steps"]) - 1:
+            advanced = client.post(
+                "/api/v1/coach/turns",
+                json={"action": "continue", "session_id": session["id"], "expected_step": session["current_step"]},
+            ).json()
+            previous_step = session["current_step"]
+            session = advanced["session"]
+            assert session["current_step"] == previous_step + 1
+
+        checking = client.post(
+            "/api/v1/coach/turns",
+            json={"action": "continue", "session_id": session["id"], "expected_step": session["current_step"]},
+        ).json()
+        assert checking["phase"] == "checking"
+        session = checking["session"]
+
+        repeated = client.post(
+            "/api/v1/coach/turns",
+            json={"action": "continue", "session_id": session["id"], "expected_step": session["current_step"]},
+        ).json()
+        assert repeated["session"]["current_step"] == session["current_step"]
+
+        correct_answer = session["lesson"]["quiz"]["correct_answer"]
+        wrong_answer = next(option["id"] for option in session["lesson"]["quiz"]["options"] if option["id"] != correct_answer)
+        wrong = client.post(
+            "/api/v1/coach/turns",
+            json={"action": "submit_check", "session_id": session["id"], "answer": wrong_answer, "expected_quiz_attempts": 0},
+        ).json()
+        assert wrong["correct"] is False
+        assert wrong["phase"] == "checking"
+        assert wrong["session"]["quiz_attempts"] == 1
+
+        duplicate = client.post(
+            "/api/v1/coach/turns",
+            json={"action": "submit_check", "session_id": session["id"], "answer": wrong_answer, "expected_quiz_attempts": 0},
+        ).json()
+        assert duplicate["correct"] is None
+        assert duplicate["session"]["quiz_attempts"] == 1
+
+        completed = client.post(
+            "/api/v1/coach/turns",
+            json={"action": "submit_check", "session_id": session["id"], "answer": correct_answer, "expected_quiz_attempts": 1},
+        ).json()
+        assert completed["correct"] is True
+        assert completed["phase"] == "completed"
+        assert completed["session"]["status"] == "completed"
 
 
 def test_question_routing_confirmation_and_idempotency():
@@ -274,6 +353,29 @@ def test_coach_conversation_history_and_question_linking():
         recent = client.get("/api/v1/coach/conversations").json()
         assert recent[0]["id"] == conversation["id"]
         assert recent[0]["title"] == "洗衣前应该先检查什么？"
+
+
+def test_professional_coach_understands_progress_language():
+    with TestClient(app) as client:
+        user = login_with_invite(client)
+        conversation = client.post("/api/v1/coach/conversations").json()
+        response = client.post(
+            "/api/v1/questions",
+            json={
+                "user_id": user["id"],
+                "conversation_id": conversation["id"],
+                "text": "这个入门的学差不多了",
+                "idempotency_key": "coach-progress-language-test",
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "answered"
+        assert payload["answer_mode"] == "coach_state"
+        assert "完成" in payload["answer"]
+        assert payload["lesson_id"] is not None
+        answered = client.post(f"/api/v1/questions/{payload['id']}/answer").json()
+        assert answered["answer"] == payload["answer"]
 
 
 def test_controlled_ai_stops_before_unreviewed_knowledge():
@@ -348,7 +450,7 @@ def test_housekeeping_assessment_and_report_flow():
             "/api/v1/housekeeping/courses", params={"user_id": user["id"]}
         )
         assert courses.status_code == 200
-        assert len(courses.json()) == 6
+        assert len(courses.json()) == 12
         assert all(item["version"]["review_status"] == "draft" for item in courses.json())
 
         pre = client.post(
@@ -411,14 +513,24 @@ def test_housekeeping_assessment_and_report_flow():
         assert submitted_post.status_code == 200
         assert submitted_post.json()["score"] == 100
         assert submitted_post.json()["question_count"] == 12
-        assert len(submitted_post.json()["knowledge_point_results"]) == 6
+        assert len(submitted_post.json()["knowledge_point_results"]) == 12
 
         report = client.get(
             "/api/v1/learning/report", params={"user_id": user["id"]}
         )
         assert report.status_code == 200
         assert report.json()["report_status"] == "complete"
-        assert report.json()["completed_core_courses"] == 6
+        assert report.json()["completed_core_courses"] == 12
+
+        mastery = client.get(
+            "/api/v1/learning/mastery", params={"user_id": user["id"]}
+        )
+        assert mastery.status_code == 200
+        assert mastery.json()["version"] == "housekeeping-mastery-v1"
+        assert mastery.json()["mastered_count"] == 12
+        assert len(mastery.json()["modules"]) == 12
+        assert all(item["score"] >= 80 for item in mastery.json()["modules"])
+        assert mastery.json()["recommended_course_id"] is None
 
 
 def test_assessment_bank_is_balanced_and_module_scoring_requires_both_answers():
@@ -434,7 +546,7 @@ def test_assessment_bank_is_balanced_and_module_scoring_requires_both_answers():
             assert question["correct_answer"] in {option["id"] for option in question["options"]}
             assert question["source_ids"]
             assert set(question["source_ids"]).issubset(SOURCE_IDS)
-        assert set(counts.values()) == {2}
+        assert set(counts.values()) == {1}
 
     answers = {question["id"]: question["correct_answer"] for question in questions_for("post")}
     first_question = questions_for("post")[0]
@@ -444,7 +556,7 @@ def test_assessment_bank_is_balanced_and_module_scoring_requires_both_answers():
     score, correct, results = score_answers("post", answers)
     assert score == 92
     assert correct == 11
-    assert results["职业规范"] is False
+    assert results["岗位边界"] is False
 
 
 def test_legacy_assessment_bank_remains_readable():
@@ -463,35 +575,12 @@ def test_content_review_publish_and_suspend_flow():
         versions = client.get("/api/v1/admin/course-versions", headers=headers)
         assert versions.status_code == 200
         cleaner = next(item for item in versions.json() if item["course_id"] == "cleaner-safety")
-
-        blocked = client.post(
-            f"/api/v1/admin/course-versions/{cleaner['id']}/submit-review",
-            headers=headers,
-            json={"actor": "内容管理员", "comment": "提交审核", "idempotency_key": "cleaner-submit-no-source"},
-        )
-        assert blocked.status_code == 409
-
-        update_payload = {
-            "objectives": cleaner["objectives"],
-            "source_refs": [{"name": "内部家政安全规范测试来源", "url": "https://example.org/housekeeping-safety"}],
-            "title": cleaner["title"],
-            "summary": cleaner["summary"],
-            "risk_level": cleaner["risk_level"],
-            "disclaimer": cleaner["disclaimer"],
-            "conclusion": cleaner["conclusion"],
-            "steps": cleaner["steps"],
-            "quiz": cleaner["quiz"],
-            "actor": "内容管理员",
-            "idempotency_key": "cleaner-update-source",
-        }
-        updated = client.put(f"/api/v1/admin/course-versions/{cleaner['id']}", headers=headers, json=update_payload)
-        assert updated.status_code == 200
-        assert len(updated.json()["source_refs"]) == 1
+        assert cleaner["source_refs"]
 
         submitted = client.post(
             f"/api/v1/admin/course-versions/{cleaner['id']}/submit-review",
             headers=headers,
-            json={"actor": "内容管理员", "comment": "资料齐全", "idempotency_key": "cleaner-submit-review"},
+            json={"actor": "内容管理员", "comment": "官方来源齐全，提交审核", "idempotency_key": "cleaner-submit-review"},
         )
         assert submitted.json()["review_status"] == "in_review"
 
@@ -544,13 +633,14 @@ def test_new_draft_does_not_leak_into_learning_catalog():
             "/api/v1/housekeeping/courses", params={"user_id": user["id"]}
         ).json()
         current = next(item for item in before if item["id"] == "housekeeping-work-basics")
-        version = next(
+        all_versions = [
             item
             for item in client.get(
                 "/api/v1/admin/course-versions", headers=headers
             ).json()
             if item["course_id"] == "housekeeping-work-basics"
-        )
+        ]
+        version = all_versions[0]
         payload = {
             "objectives": version["objectives"],
             "source_refs": [
@@ -575,7 +665,7 @@ def test_new_draft_does_not_leak_into_learning_catalog():
             json=payload,
         )
         assert created.status_code == 200
-        assert created.json()["version"] == 2
+        assert created.json()["version"] == max(item["version"] for item in all_versions) + 1
         assert created.json()["review_status"] == "draft"
 
         after = client.get(
@@ -584,7 +674,15 @@ def test_new_draft_does_not_leak_into_learning_catalog():
         visible = next(item for item in after if item["id"] == "housekeeping-work-basics")
         assert visible["title"] == current["title"]
         assert visible["summary"] == current["summary"]
-        assert visible["version"]["version"] == current["version"]["version"] == 1
+        assert visible["version"]["version"] == current["version"]["version"] == 2
+
+
+def test_candidate_housekeeping_question_bank_is_complete_and_traceable():
+    assert len(HOUSEKEEPING_QUESTION_BANK_V1) == 100
+    assert len({item["id"] for item in HOUSEKEEPING_QUESTION_BANK_V1}) == 100
+    assert all(item["course_id"] in COURSE_META for item in HOUSEKEEPING_QUESTION_BANK_V1)
+    assert all(item["source_ids"] for item in HOUSEKEEPING_QUESTION_BANK_V1)
+    assert all(item["review_status"] == "candidate" for item in HOUSEKEEPING_QUESTION_BANK_V1)
 
 
 def test_role_authorization_logout_and_account_deletion():

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Award, BookOpenCheck, CheckCircle2, ShieldCheck } from "lucide-react";
+import { ArrowRight, Award, NotebookTabs } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -29,45 +29,40 @@ export function HomeDashboard() {
   }, []);
 
   const action = actions[overview?.recommended_action ?? "start_pre_assessment"];
-  const percent = overview ? Math.round((overview.completed_core_courses / overview.total_core_courses) * 100) : 0;
+  const percent = overview?.total_core_courses ? Math.round((overview.completed_core_courses / overview.total_core_courses) * 100) : 0;
 
   return (
     <main id="main-content" className="home-shell academy-home">
       <AppHeader current="home" />
-      <section className="academy-welcome">
-        <div className="academy-welcome-copy"><h1>阿嬷学院</h1><p className="academy-lead">从入门学到上岗。</p></div>
-      </section>
+      <div className="v2-home-intro"><h1>今天接着学</h1><p>按课程慢慢学，进度自动保存。</p></div>
 
-      <section className="academy-primary-card academy-learning-summary" aria-busy={!overview && !error}>
+      <section className="academy-primary-card academy-learning-summary academy-spotlight" aria-busy={!overview && !error}>
         {error ? (
           <div className="academy-state"><strong>进度暂时加载不出来</strong><p>{error}</p><button type="button" onClick={() => window.location.reload()}>再试一次</button></div>
         ) : !overview ? (
           <div className="academy-state"><span className="loading-dots" aria-hidden="true"><i /><i /><i /></span><strong>正在准备你的学习路径</strong></div>
         ) : (
           <>
-            <p className="section-kicker">{action.eyebrow}</p>
-            <h2>{action.title}</h2>
-            <p>{action.copy}</p>
-            <Link className="academy-main-action specular-action" href={action.href}><span>{action.button}</span><ArrowRight aria-hidden="true" size={22} /></Link>
+            <div className="academy-spotlight-copy">
+              <p className="section-kicker">{action.eyebrow}</p>
+              <h2>{action.title}</h2>
+              <p>{action.copy}</p>
+              <Link className="academy-main-action specular-action" href={action.href}><span>{action.button}</span><ArrowRight aria-hidden="true" size={22} /></Link>
+            </div>
             <div className="academy-inline-progress"><div><span>家政入门进度</span><strong>{overview.completed_core_courses}/{overview.total_core_courses} 门</strong></div><div className="academy-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span style={{ width: `${percent}%` }} /></div></div>
           </>
         )}
       </section>
 
-      <HomeControls />
       <section className="academy-shortcuts" aria-labelledby="shortcut-title">
-        <div className="mobile-section-title"><div><span>常用入口</span><h2 id="shortcut-title">学习与上岗</h2></div></div>
+        <h2 id="shortcut-title" className="sr-only">学习与上岗</h2>
         <div>
-          <Link href="/housekeeping"><span className="academy-icon tone-sky"><BookOpenCheck aria-hidden="true" size={23} /></span><span className="academy-shortcut-copy"><strong>六门家政基础课</strong><small>查看课程，继续上次学习</small></span><ArrowRight aria-hidden="true" size={19} /></Link>
-          <Link href="/career-path"><span className="academy-icon tone-peach"><Award aria-hidden="true" size={23} /></span><span className="academy-shortcut-copy"><strong>从入门到上岗</strong><small>技能、实操、证书和就业全流程</small></span><ArrowRight aria-hidden="true" size={19} /></Link>
+          <Link href="/records"><NotebookTabs aria-hidden="true" size={23} /><span className="academy-shortcut-copy"><strong>学习记录</strong><small>看看已经学了什么</small></span><ArrowRight aria-hidden="true" size={19} /></Link>
+          <Link href="/career-path"><Award aria-hidden="true" size={23} /><span className="academy-shortcut-copy"><strong>上岗准备</strong><small>了解实训与就业路径</small></span><ArrowRight aria-hidden="true" size={19} /></Link>
         </div>
       </section>
-
-      <div className="academy-trust">
-        <span><ShieldCheck aria-hidden="true" size={18} />候选内容明确标识，待专业审核</span>
-        {overview?.report_status === "complete" && <span><CheckCircle2 aria-hidden="true" size={18} />学习提升已经可以查看</span>}
-      </div>
-      <p className="home-content-note">当前为内部开发测试，线上学习结果不等于职业资格或实操认证</p>
+      <details className="v2-more"><summary>更多功能</summary><HomeControls /></details>
+      <p className="home-content-note">内测学习记录不等于职业资格或实操认证</p>
     </main>
   );
 }

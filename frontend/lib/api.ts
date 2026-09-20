@@ -1,4 +1,4 @@
-import type { AdminCourseVersion, AiCapability, AssessmentAttempt, AssessmentResult, CoachConversation, CourseCard, DeleteAccountResult, Invitation, IssuedInvitation, KnowledgeSearchResult, LearningOverview, LearningReport, LearningSession, MediaAsset, QuestionRequest, QuizResult, User } from "@/lib/types";
+import type { AdminCourseVersion, AiCapability, AssessmentAttempt, AssessmentResult, CoachConversation, CoachTurn, CourseCard, DeleteAccountResult, Invitation, IssuedInvitation, KnowledgeSearchResult, LearningOverview, LearningReport, LearningSession, MasteryOverview, MediaAsset, QuestionRequest, QuizResult, User } from "@/lib/types";
 
 type ErrorPayload = {
   detail?: string;
@@ -9,6 +9,18 @@ type ErrorPayload = {
     request_id?: string;
   };
 };
+
+import type { LearningMode, LearningModePreference } from "@/lib/learning-mode";
+
+export function getLearningMode() {
+  return api<LearningModePreference>("/api/v1/auth/learning-mode", { cache: "no-store" });
+}
+
+export function saveLearningMode(mode: LearningMode) {
+  return api<LearningModePreference>("/api/v1/auth/learning-mode", {
+    method: "PUT", body: JSON.stringify({ preferred_mode: mode }),
+  });
+}
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "/backend";
 export const CURRENT_PRIVACY_VERSION = "2026-08-28-v1";
@@ -96,6 +108,16 @@ export function getAiCapability() { return api<AiCapability>("/api/v1/ai/capabil
 export function getCoachConversations() { return api<CoachConversation[]>("/api/v1/coach/conversations"); }
 export function createCoachConversation() { return api<CoachConversation>("/api/v1/coach/conversations", { method: "POST" }); }
 export function getCoachConversationQuestions(id: number) { return api<QuestionRequest[]>(`/api/v1/coach/conversations/${id}/questions`); }
+export function runCoachTurn(payload: {
+  action: "start_or_resume" | "continue" | "explain_again" | "submit_check" | "pause";
+  course_id?: string;
+  session_id?: number;
+  answer?: string;
+  expected_step?: number;
+  expected_quiz_attempts?: number;
+}) {
+  return api<CoachTurn>("/api/v1/coach/turns", { method: "POST", body: JSON.stringify(payload) });
+}
 export function searchKnowledge(query: string) { return api<KnowledgeSearchResult>(`/api/v1/knowledge/search?q=${encodeURIComponent(query)}`); }
 export function answerQuestion(id: number) { return api<QuestionRequest>(`/api/v1/questions/${id}/answer`, { method: "POST" }); }
 export function confirmQuestion(id: number) { return api<LearningSession>(`/api/v1/questions/${id}/confirm`, { method: "POST" }); }
@@ -131,6 +153,11 @@ export async function startHousekeepingCourse(courseId: string) {
 export async function getLearningOverview() {
   const user = await getCurrentUser();
   return api<LearningOverview>(`/api/v1/learning/overview?user_id=${user.id}`);
+}
+
+export async function getLearningMastery() {
+  const user = await getCurrentUser();
+  return api<MasteryOverview>(`/api/v1/learning/mastery?user_id=${user.id}`);
 }
 
 export async function startAssessment(kind: "pre" | "post", idempotencyKey: string) {

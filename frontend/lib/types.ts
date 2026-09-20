@@ -95,6 +95,22 @@ export type QuizResult = {
   session: LearningSession;
 };
 
+export type CoachTurn = {
+  phase: "teaching" | "checking" | "repairing" | "completed" | "paused";
+  reply_text: string;
+  speech_text: string;
+  next_action: string;
+  correct: boolean | null;
+  session: LearningSession;
+  media: MediaAsset[];
+  ui_blocks: Array<{ type: string; text?: string; asset_id?: string; asset_version?: number }>;
+  agent_trace_id: string;
+  skill_key: string;
+  skill_version: string;
+  prompt_version: string | null;
+  tool_calls: string[];
+};
+
 export type QuestionRequest = {
   id: number;
   user_id: number;
@@ -107,7 +123,7 @@ export type QuestionRequest = {
   message: string | null;
   next_action: string | null;
   answer: string | null;
-  answer_mode: "model" | "knowledge_fallback" | "unavailable" | null;
+  answer_mode: "model" | "knowledge_fallback" | "coach_state" | "unavailable" | null;
   knowledge_refs: Array<{ type: "course" | "source"; title?: string; name?: string; url?: string; version?: number }>;
   model_provider: string | null;
   model_name: string | null;
@@ -170,6 +186,26 @@ export type LearningOverview = {
   recommended_course_id: string | null;
   post_assessment_status: string;
   report_status: string;
+};
+
+export type MasteryModule = {
+  course_id: string;
+  title: string;
+  knowledge_point: string;
+  score: number;
+  status: "not_started" | "learning" | "needs_review" | "mastered";
+  safety_attention: boolean;
+  evidence: string[];
+};
+
+export type MasteryOverview = {
+  version: string;
+  modules: MasteryModule[];
+  mastered_count: number;
+  total_count: number;
+  recommended_course_id: string | null;
+  recommended_title: string | null;
+  recommendation_reason: string | null;
 };
 
 export type AssessmentQuestion = {

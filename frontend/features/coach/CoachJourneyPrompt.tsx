@@ -1,53 +1,36 @@
 "use client";
 
-import { ArrowRight, Sparkles } from "lucide-react";
-import Link from "next/link";
-
-import type { LearningOverview } from "@/lib/types";
-
-const promptCopy = {
-  start_pre_assessment: { copy: "我们先用几道小题了解你的基础，做完后我就从最合适的一课开始陪你学。", href: "/assessment/pre", button: "先了解我的基础" },
-  start_post_assessment: { copy: "六门入门课已经学完了。我们简单回顾一下，看看哪些已经掌握、哪些还要再讲。", href: "/assessment/post", button: "一起回顾一下" },
-  view_report: { copy: "入门学习已经完成。我把这段时间的学习结果整理好了，接下来可以准备实训和上岗。", href: "/report", button: "看看我的学习结果" },
-} as const;
+import { ArrowRight, BookOpenCheck } from "lucide-react";
+import type { LearningOverview, MasteryOverview } from "@/lib/types";
 
 type Props = {
   overview: LearningOverview | null;
+  mastery: MasteryOverview | null;
   starting: boolean;
+  loading: boolean;
+  error: string;
   examples: string[];
-  onContinueCourse: () => void;
+  onRetry: () => void;
+  onContinueCourse: (courseId?: string | null) => void;
   onChooseExample: (example: string) => void;
 };
 
-export function CoachJourneyPrompt({ overview, starting, examples, onContinueCourse, onChooseExample }: Props) {
-  const exampleReplies = examples.slice(0, overview ? 2 : 3).map((example) => (
-    <button key={example} type="button" onClick={() => onChooseExample(example)}>
-      <span>{example}</span><ArrowRight aria-hidden="true" size={17} />
-    </button>
-  ));
-
-  if (!overview) {
-    return <AssistantTurn copy="你好。你可以直接告诉我想学什么，也可以从下面选一个问题开始。">{exampleReplies}</AssistantTurn>;
-  }
-
-  if (overview.recommended_action === "continue_course") {
-    return <AssistantTurn copy={`我记得你已经完成 ${overview.completed_core_courses}/${overview.total_core_courses} 门。今天可以接着学下一门，我会直接开始讲；哪里没听懂，随时告诉我。`}>
-      <button className="is-recommended" type="button" onClick={onContinueCourse} disabled={starting}><span>{starting ? "正在准备…" : "接着上次学习"}</span><ArrowRight aria-hidden="true" size={17} /></button>
-      {exampleReplies}
-    </AssistantTurn>;
-  }
-
-  const prompt = promptCopy[overview.recommended_action];
-  return <AssistantTurn copy={prompt.copy}>
-    <Link className="is-recommended" href={prompt.href}><span>{prompt.button}</span><ArrowRight aria-hidden="true" size={17} /></Link>
-    {exampleReplies}
-  </AssistantTurn>;
-}
-
-function AssistantTurn({ copy, children }: { copy: string; children: React.ReactNode }) {
-  return <article className="coach-assistant-turn" aria-label="阿嬷 AI 老师">
-    <div className="coach-answer-label"><Sparkles aria-hidden="true" size={17} /><strong>阿嬷 AI 老师</strong></div>
-    <p>{copy}</p>
-    <div className="coach-conversation-replies" aria-label="可以这样回复">{children}</div>
-  </article>;
+export function CoachJourneyPrompt({ overview, mastery, starting, loading, error, examples, onRetry, onContinueCourse, onChooseExample }: Props) {
+  const review = overview?.recommended_action === "view_report" && mastery?.recommended_course_id;
+  const courseId = review ? mastery.recommended_course_id : overview?.recommended_course_id;
+  const canResume = Boolean(courseId);
+  const firstLesson = overview?.recommended_action === "start_pre_assessment";
+  const primaryLabel = review ? "一起复习" : canResume ? firstLesson ? "开始第一门课" : "接着上次学习" : "和老师聊聊";
+  return <section className="v2-coach-home">
+    <div className="v2-home-intro"><h1>今天接着学</h1><p>和老师聊，一步一步学会家政。</p></div>
+    <article className="v2-resume-card" aria-busy={loading}>
+      {loading ? <p role="status">正在读取学习进度…</p> : error ? <><h2>进度暂时没读到</h2><p role="alert">{error}</p><button className="v2-secondary" onClick={onRetry}>重新读取</button></> : <>
+        <div className="v2-card-label"><BookOpenCheck aria-hidden="true" size={19} /><span>{review ? "值得再练一练" : canResume && !firstLesson ? "接着上次" : "从这里开始"}</span></div>
+        <h2>{review ? mastery.recommended_title : canResume ? firstLesson ? "一起学家政入门" : "继续你的家政学习" : "想先学点什么？"}</h2>
+        <p>{overview ? `已完成 ${overview.completed_core_courses}/${overview.total_core_courses} 门 · 学习位置自动保存` : "可以打字，也可以点话筒说话。"}</p>
+        <button className="v2-primary" disabled={starting} onClick={() => canResume ? onContinueCourse(courseId) : onChooseExample("我想从家政入门开始学，你能陪我一起吗？")}><span>{starting ? "正在准备…" : primaryLabel}</span><ArrowRight aria-hidden="true" size={20} /></button>
+      </>}
+    </article>
+    <details className="v2-more"><summary>不知道问什么？</summary><div className="v2-examples">{examples.map((example) => <button key={example} onClick={() => onChooseExample(example)}><span>{example}</span><ArrowRight aria-hidden="true" size={17} /></button>)}</div></details>
+  </section>;
 }

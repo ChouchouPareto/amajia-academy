@@ -1,15 +1,16 @@
 "use client";
 
-import { ArrowRight, BookOpen, CheckCircle2, Clock3, RefreshCcw } from "lucide-react";
+import { ArrowRight, BookOpen, CheckCircle2, Clock3, RefreshCcw, ShieldAlert, Target } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { AppHeader } from "@/components/AppHeader";
-import { AppError, getLearningRecords } from "@/lib/api";
-import type { LearningSession } from "@/lib/types";
+import { AppError, getLearningMastery, getLearningRecords } from "@/lib/api";
+import type { LearningSession, MasteryOverview } from "@/lib/types";
 
 export function RecordsView() {
   const [records, setRecords] = useState<LearningSession[] | null>(null);
+  const [mastery, setMastery] = useState<MasteryOverview | null>(null);
   const [error, setError] = useState("");
 
   async function load() {
@@ -26,21 +27,37 @@ export function RecordsView() {
       .catch((caught) => { if (!cancelled) setError(caught instanceof AppError ? caught.message : "学习记录暂时加载不出来。"); });
     return () => { cancelled = true; };
   }, []);
+  useEffect(() => {
+    let cancelled = false;
+    getLearningMastery().then((value) => { if (!cancelled) setMastery(value); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
   const learning = records?.filter((record) => record.status !== "completed") ?? [];
   const completed = records?.filter((record) => record.status === "completed") ?? [];
 
   return (
     <main id="main-content" className="page-shell">
       <AppHeader current="records" />
-      <section className="records-intro"><p className="section-kicker">你的学习足迹</p><h1>我学过的</h1><p>学习位置会保存，关闭页面后也可以继续。</p></section>
+      <section className="records-intro"><h1>学习记录</h1><p>看看已经学了什么，接着上次继续。</p></section>
+      {mastery && <MasterySummary mastery={mastery} />}
       {records === null && !error && <div className="loading-card"><span className="loading-dots" aria-hidden="true"><i /><i /><i /></span><strong>正在加载学习记录</strong></div>}
       {error && <section className="empty-records"><div className="state-icon state-icon--sky"><RefreshCcw aria-hidden="true" size={34} /></div><h2>暂时加载不出来</h2><p>{error}</p><button className="rainbow-button" type="button" onClick={() => void load()}><span>再试一次</span><ArrowRight aria-hidden="true" size={22} /></button></section>}
-      {records?.length === 0 && <section className="empty-records"><div className="state-icon state-icon--sky"><BookOpen aria-hidden="true" size={34} /></div><h2>还没有学习记录</h2><p>从一个具体的生活问题开始，学习位置就会保存在这里。</p><Link className="rainbow-button" href="/coach"><span>进入 AI 专业陪学</span><ArrowRight aria-hidden="true" size={22} /></Link></section>}
+      {records?.length === 0 && <section className="empty-records"><div className="state-icon state-icon--sky"><BookOpen aria-hidden="true" size={34} /></div><h2>还没有学习记录</h2><p>开始一门课程，学习位置就会保存在这里。</p><Link className="rainbow-button" href="/housekeeping"><span>浏览家政课</span><ArrowRight aria-hidden="true" size={22} /></Link></section>}
       {learning.length > 0 && <RecordGroup title="学习中" records={learning} />}
       {completed.length > 0 && <RecordGroup title="已完成" records={completed} />}
       <footer className="prototype-note">记录已保存到学习服务 · 当前使用本地测试身份</footer>
     </main>
   );
+}
+
+function MasterySummary({ mastery }: { mastery: MasteryOverview }) {
+  const progress = Math.round((mastery.mastered_count / mastery.total_count) * 100);
+  return <section className="mastery-summary" aria-labelledby="mastery-summary-title">
+    <div className="mastery-summary__heading"><span><Target aria-hidden="true" size={22} /></span><div><small>根据测评和学习记录计算</small><h2 id="mastery-summary-title">已掌握 {mastery.mastered_count}/{mastery.total_count} 项</h2></div></div>
+    <div className="mastery-summary__track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div>
+    <div className="mastery-module-list">{mastery.modules.map((module) => <span className={`is-${module.status}`} key={module.course_id}>{module.safety_attention && <ShieldAlert aria-hidden="true" size={14} />}{module.knowledge_point}</span>)}</div>
+    {mastery.recommended_course_id && <Link className="mastery-next" href={`/housekeeping?review=${mastery.recommended_course_id}`}><span><small>建议下一步</small><strong>{mastery.recommended_title}</strong><em>{mastery.recommendation_reason}</em></span><ArrowRight aria-hidden="true" size={20} /></Link>}
+  </section>;
 }
 
 function RecordGroup({ title, records }: { title: string; records: LearningSession[] }) {

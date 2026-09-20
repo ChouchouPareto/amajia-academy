@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -13,9 +14,11 @@ from sqlalchemy.orm import Session
 
 from .admin_content import AdminContentError, router as admin_content_router
 from .ai_service import answer_from_published_knowledge, model_configured
-from .coach_orchestrator import plan_question_answer
+from .coach_orchestrator import plan_course_turn, plan_intent_routing, plan_progress_guidance, plan_question_answer
+from .intent_router import keyword_lesson, route_coach_message
 from .knowledge_retrieval import rebuild_course_index, retrieve_published_course, search_published_knowledge
 from .media_service import published_media_for_version
+from .mastery import build_mastery
 from .auth import AuthError, require_current_user, router as auth_router, seed_development_invitations
 from .db import engine, ensure_schema, get_db
 from .assessments import ASSESSMENT_VERSION, public_questions, questions_for, score_answers
@@ -29,8 +32,11 @@ from .schemas import (
     CourseCardOut,
     CoachConversationOut,
     CourseVersionOut,
+    CoachTurnIn,
+    CoachTurnOut,
     LessonOut,
     LearningOverviewOut,
+    MasteryOverviewOut,
     LearningReportOut,
     KnowledgeSearchHitOut,
     KnowledgeSearchOut,
@@ -105,7 +111,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="阿嬷学院 API", version="0.4.0", lifespan=lifespan)
+app = FastAPI(title="阿嬷学院 API", version="0.5.2-beta.2", lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(admin_content_router)
 app.add_middleware(
@@ -128,7 +134,7 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "phase": 3, "version": "0.4.0", "mode": "internal_test"}
+    return {"status": "ok", "phase": 4, "version": "0.5.2-beta.1", "mode": "internal_test"}
 
 
 @app.get("/api/v1/lessons", response_model=list[LessonOut])
@@ -186,20 +192,23 @@ def get_conversation_questions(conversation_id: int, user: User = Depends(requir
 
 
 def resolve_lesson_id(text: str) -> str | None:
-    normalized = text.strip().lower()
-    if any(term in normalized for term in ("职业规范", "服务范围", "家政工作")):
-        return "housekeeping-work-basics"
-    if any(term in normalized for term in ("清洁剂", "混用", "通风")):
-        return "cleaner-safety"
-    if any(term in normalized for term in ("油", "厨房")):
-        return "kitchen-order"
-    if any(term in normalized for term in ("卫生间", "厕所", "马桶")):
-        return "bathroom-safety"
-    if any(term in normalized for term in ("收纳", "整理", "东西太多", "收拾")):
-        return "home-organize"
-    if any(term in normalized for term in ("洗衣", "衣物", "洗标")):
-        return "laundry-basics"
-    return None
+    return keyword_lesson(text)
+
+
+def progress_coach_answer(db: Session, user_id: int) -> tuple[str, str | None, str]:
+    sessions = list(db.scalars(select(LearningSession).where(LearningSession.user_id == user_id, LearningSession.lesson_id.in_(tuple(COURSE_META)))))
+    completed_ids = {session.lesson_id for session in sessions if session.status == "completed"}
+    recommended_id = next((course_id for course_id in COURSE_META if course_id not in completed_ids), None)
+    total = len(COURSE_META)
+    if len(completed_ids) >= total:
+        return f"是的，入门的{total}门课你都学完了。下一步做一次学后测评，看看哪里还需要补一补。", None, "开始学后测评"
+    lesson = db.get(Lesson, recommended_id) if recommended_id else None
+    title = lesson.title if lesson else "下一门家政课"
+    return (
+        f"是的，你已经完成{len(completed_ids)}/{total}门入门课。接下来学《{title}》，我会继续一步一步陪你。",
+        recommended_id,
+        f"在对话里继续学《{title}》",
+    )
 
 
 def ensure_owner(user: User, user_id: int) -> None:
@@ -314,26 +323,101 @@ def create_question(payload: QuestionIn, user: User = Depends(require_current_us
             next_action="如有人正在明显不适或处于危险中，请立即联系当地急救服务或合适的专业人员。",
         )
     else:
-        lesson_id = resolve_lesson_id(normalized)
-        if lesson_id is None:
+        plan_intent_routing()
+        recent_turns: list[str] = []
+        if conversation:
+            recent_turns = [
+                item.original_text
+                for item in db.scalars(
+                    select(QuestionRequest)
+                    .where(QuestionRequest.conversation_id == conversation.id)
+                    .order_by(QuestionRequest.created_at.desc())
+                    .limit(6)
+                )
+            ]
+        lessons = list(db.scalars(select(Lesson).where(Lesson.id.in_(tuple(COURSE_META)))))
+        catalog = {lesson.id: lesson.title for lesson in lessons}
+        route = route_coach_message(normalized, list(reversed(recent_turns)), catalog)
+        if route.intent in ("learning_progress", "continue_learning"):
+            plan = plan_progress_guidance()
+            answer, lesson_id, next_action = progress_coach_answer(db, payload.user_id)
             question = QuestionRequest(
                 user_id=payload.user_id,
                 conversation_id=payload.conversation_id,
                 idempotency_key=payload.idempotency_key,
                 original_text=normalized,
-                understood_text=f"你想了解：“{normalized}”，对吗？",
+                understood_text=route.understood_text,
+                status="answered",
+                lesson_id=lesson_id,
+                risk_level="L0",
+                answer=answer,
+                answer_mode="coach_state",
+                model_provider=route.provider,
+                model_name=route.model,
+                prompt_version=plan.prompt_version,
+                message="已根据你的真实学习记录整理。",
+                next_action=next_action,
+                answered_at=datetime.now(timezone.utc),
+            )
+        elif route.intent == "career_next_step":
+            plan = plan_progress_guidance()
+            progress_answer, lesson_id, next_action = progress_coach_answer(db, payload.user_id)
+            question = QuestionRequest(
+                user_id=payload.user_id,
+                conversation_id=payload.conversation_id,
+                idempotency_key=payload.idempotency_key,
+                original_text=normalized,
+                understood_text=route.understood_text,
+                status="answered",
+                lesson_id=lesson_id,
+                risk_level="L0",
+                answer=f"{progress_answer}完成入门学习和测评后，再按杭州或衢州的实际要求准备培训、证书和求职材料。",
+                answer_mode="coach_state",
+                model_provider=route.provider,
+                model_name=route.model,
+                prompt_version=plan.prompt_version,
+                message="已根据学习记录和当前内测范围整理。",
+                next_action=next_action,
+                answered_at=datetime.now(timezone.utc),
+            )
+        elif route.intent == "general_chat":
+            question = QuestionRequest(
+                user_id=payload.user_id,
+                conversation_id=payload.conversation_id,
+                idempotency_key=payload.idempotency_key,
+                original_text=normalized,
+                understood_text=route.understood_text,
+                status="answered",
+                risk_level="L0",
+                answer="我在呢。你可以问家政问题，也可以说‘我学到哪了’或‘继续下一门课’。",
+                answer_mode="coach_state",
+                model_provider=route.provider,
+                model_name=route.model,
+                prompt_version="coach-conversation-v1",
+                message="阿嬷AI老师会在专业版里继续陪你。",
+                next_action="继续说你想学什么",
+                answered_at=datetime.now(timezone.utc),
+            )
+        elif route.intent != "course_question" or route.lesson_id is None:
+            question = QuestionRequest(
+                user_id=payload.user_id,
+                conversation_id=payload.conversation_id,
+                idempotency_key=payload.idempotency_key,
+                original_text=normalized,
+                understood_text=route.understood_text,
                 status="no_match",
                 risk_level="L0",
-                message="阿嬷学院当前只开放家政入门候选内容，所以这次先不随便回答。你可以回到家政学习路径选择课程。",
+                message="我还没听懂你这句话想问课程、学习进度，还是下一步。你可以换种说法，不用退出专业版。",
             )
         else:
+            lesson_id = route.lesson_id
             lesson = db.get(Lesson, lesson_id)
             question = QuestionRequest(
                 user_id=payload.user_id,
                 conversation_id=payload.conversation_id,
                 idempotency_key=payload.idempotency_key,
                 original_text=normalized,
-                understood_text=f"你想学习“{lesson.title if lesson else normalized}”，对吗？",
+                understood_text=route.understood_text if route.mode == "model" else f"你想学习“{lesson.title if lesson else normalized}”，对吗？",
                 status="waiting_confirmation",
                 lesson_id=lesson_id,
                 risk_level="L0",
@@ -445,6 +529,144 @@ def start_housekeeping_course(course_id: str, payload: StartLessonIn, user: User
     if course is None or course.domain != "housekeeping" or course.content_status not in ("internal_test_candidate", "published"):
         return error_response(404, "COURSE_NOT_FOUND", "没有找到这门家政课程")
     return start_lesson(course_id, payload, user, db)
+
+
+@app.post("/api/v1/coach/turns", response_model=CoachTurnOut)
+def run_coach_turn(payload: CoachTurnIn, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    """Run one deterministic, auditable turn of the professional learning loop."""
+    plan = plan_course_turn(payload.action)  # type: ignore[arg-type]
+    session: LearningSession | None = None
+
+    if payload.action == "start_or_resume":
+        target_course_id = payload.course_id
+        if target_course_id is None:
+            completed_ids = set(
+                db.scalars(
+                    select(LearningSession.lesson_id).where(
+                        LearningSession.user_id == user.id,
+                        LearningSession.status == "completed",
+                        LearningSession.lesson_id.in_(tuple(COURSE_META)),
+                    )
+                )
+            )
+            target_course_id = next((course_id for course_id in COURSE_META if course_id not in completed_ids), None)
+        if target_course_id is None:
+            return error_response(409, "CORE_COURSES_COMPLETED", "入门课程已经学完，可以开始复习或查看学习结果")
+        course = db.get(Lesson, target_course_id)
+        if course is None or course.domain != "housekeeping" or course.content_status not in ("internal_test_candidate", "published"):
+            return error_response(404, "COURSE_NOT_FOUND", "没有找到这门家政课程")
+        session = db.scalar(
+            select(LearningSession).where(
+                LearningSession.user_id == user.id,
+                LearningSession.lesson_id == target_course_id,
+            )
+        )
+        if session is None:
+            version = active_course_version(db, target_course_id)
+            session = LearningSession(user_id=user.id, lesson_id=target_course_id, course_version_id=version.id if version else None)
+            db.add(session)
+            db.commit()
+            db.refresh(session)
+    else:
+        if payload.session_id is None:
+            return error_response(422, "SESSION_REQUIRED", "这一步需要当前学习记录")
+        session = db.get(LearningSession, payload.session_id)
+        if session is None:
+            return error_response(404, "SESSION_NOT_FOUND", "没有找到学习记录")
+        ensure_owner(user, session.user_id)
+
+    session_out = serialize_session(db, session)
+    lesson = session_out.lesson
+    steps = lesson.steps
+    correct: bool | None = None
+
+    if payload.action == "continue" and session.status != "completed":
+        if payload.expected_step is not None and payload.expected_step != session.current_step:
+            pass  # Safe retry: return current state without advancing twice.
+        elif session.current_step < len(steps) - 1:
+            session.current_step += 1
+            session.status = "learning"
+            db.commit()
+            db.refresh(session)
+        else:
+            session.status = "checking"
+            db.commit()
+            db.refresh(session)
+    elif payload.action == "submit_check":
+        if not payload.answer:
+            return error_response(422, "ANSWER_REQUIRED", "请选择一个答案")
+        if session.status == "completed":
+            correct = True
+        elif payload.expected_quiz_attempts is not None and payload.expected_quiz_attempts != session.quiz_attempts:
+            correct = None  # Safe retry: do not record the same attempt twice.
+        else:
+            session.quiz_attempts += 1
+            correct = payload.answer == lesson.quiz["correct_answer"]
+            if correct:
+                session.status = "completed"
+                session.current_step = max(len(steps) - 1, 0)
+                session.completed_at = datetime.now(timezone.utc)
+            else:
+                session.status = "checking"
+            db.commit()
+            db.refresh(session)
+
+    session_out = serialize_session(db, session)
+    step_index = min(session.current_step, max(len(steps) - 1, 0))
+    step = steps[step_index] if steps else {"title": lesson.title, "body": lesson.conclusion}
+    media = published_media_for_version(db, session.course_version_id, step_index) if session.course_version_id else []
+
+    if session.status == "completed":
+        phase = "completed"
+        reply = f"这门课完成了。今天最重要的一句是：{lesson.conclusion}"
+        next_action = "继续下一门课，或先休息一下。"
+    elif payload.action == "explain_again":
+        phase = "repairing"
+        sentence = next((part.strip() for part in re.split(r"[。！？]", str(step["body"])) if part.strip()), str(step["body"]))
+        reply = f"没关系，我们先只记住一句：{sentence}。先把这一件做好，再继续。"
+        next_action = "听懂后告诉我‘继续’。"
+    elif session.status == "checking":
+        phase = "checking"
+        if correct is False:
+            reply = str(lesson.quiz.get("explanation", "这道题容易混淆，我们换一种说法再试一次。"))
+        elif correct is None and payload.action == "submit_check":
+            reply = "这次回答已经记录，请看当前检查题。"
+        else:
+            reply = f"我想确认一下你有没有听懂：{lesson.quiz['question']}"
+        next_action = "选一个你认为正确的答案。"
+    elif payload.action == "pause":
+        phase = "paused"
+        reply = "好的，学习位置已经保留。下次回来，我们从这一步继续。"
+        next_action = "下次打开专业版后点‘接着学’。"
+    else:
+        phase = "teaching"
+        reply = f"{step['title']}。{step['body']}"
+        next_action = "听懂了就继续；没听懂我就换一种说法。"
+
+    ui_blocks: list[dict[str, object]] = [{"type": "teacher_text", "text": reply}]
+    ui_blocks.extend(
+        {"type": f"{asset.media_type}_card", "asset_id": str(asset.id), "asset_version": 1}
+        for asset in media
+    )
+    if phase == "checking":
+        ui_blocks.append({"type": "choice_check", "text": str(lesson.quiz["question"])})
+    ui_blocks.append({"type": "action_prompt", "text": next_action})
+
+    return CoachTurnOut(
+        phase=phase,
+        reply_text=reply,
+        speech_text=reply,
+        next_action=next_action,
+        correct=correct,
+        session=session_out,
+        media=[MediaAssetOut.model_validate(asset) for asset in media],
+        ui_blocks=ui_blocks,
+        agent_trace_id=plan.trace_id,
+        skill_key=plan.skill_key,
+        skill_version=plan.skill_version,
+        prompt_version=plan.prompt_version,
+        tool_calls=[tool.name for tool in plan.tool_calls],
+    )
 
 
 @app.get("/api/v1/learning/sessions/{session_id}", response_model=SessionOut)
@@ -631,6 +853,14 @@ def learning_overview(user_id: int, user: User = Depends(require_current_user), 
         post_assessment_status="submitted" if post else "not_started",
         report_status="complete" if pre and post else "incomplete",
     )
+
+
+@app.get("/api/v1/learning/mastery", response_model=MasteryOverviewOut)
+def learning_mastery(user_id: int, user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    ensure_owner(user, user_id)
+    if db.get(User, user_id) is None:
+        return error_response(404, "USER_NOT_FOUND", "没有找到测试学员")
+    return MasteryOverviewOut(**build_mastery(db, user_id))
 
 
 @app.post("/api/v1/assessments/{kind}/start", response_model=AssessmentAttemptOut)

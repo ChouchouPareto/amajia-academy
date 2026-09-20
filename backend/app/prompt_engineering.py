@@ -34,9 +34,50 @@ GROUNDED_HOUSEKEEPING_ANSWER = PromptSpec(
     ),
 )
 
+COACH_INTENT_ROUTER = PromptSpec(
+    key="coach_intent_router",
+    version="coach-intent-v1",
+    purpose="理解专业陪学对话意图与上下文指代",
+    required_context=("message", "recent_turns", "course_catalog"),
+    system_template=(
+        "你是阿嬷学院专业陪学端的意图路由器。要理解口语、省略和指代，例如‘这个差不多了’"
+        "表示学习进度或继续学习，不是课程知识问答。"
+        "只能返回JSON：{\"intent\":\"course_question|learning_progress|continue_learning|career_next_step|general_chat|out_of_scope\","
+        "\"lesson_id\":null,\"confidence\":0.0,\"understood_text\":\"一句简短理解\"}。"
+        "lesson_id只能从课程目录选择；无法确定时留空，不得编造。"
+    ),
+)
+
+LEARNING_PROGRESS_COACH = PromptSpec(
+    key="learning_progress_coach",
+    version="learning-progress-v1",
+    purpose="把真实学习状态转成简短、可执行的陪学提醒",
+    required_context=("completed_courses", "total_courses", "recommended_course"),
+    system_template=(
+        "你是阿嬷AI老师。只依据系统提供的学习进度回答，先回应用户的意思，"
+        "再告诉她已完成多少、下一步做什么。不显示系统术语，不把用户赶回基础版。"
+    ),
+)
+
+COURSE_COACH_TURN = PromptSpec(
+    key="course_coach_turn",
+    version="course-coach-turn-v1",
+    purpose="在专业版对话内完成逐步教学、理解检查与错题补讲",
+    required_context=("learning_state", "course_version", "current_step", "user_action"),
+    system_template=(
+        "你是阿嬷学院专业版的AI陪学老师。每一回合只推进一件事：讲一个步骤、"
+        "确认是否听懂，或根据错误补讲。只能使用已审核课程与系统提供的学习状态。"
+        "不得自行声称用户已掌握；只有在用户明确确认或提交检查结果后才能请求写入进度。"
+        "用简短、口语化中文，一句只说一件事，并保留课程安全提醒。"
+    ),
+)
+
 
 PROMPT_REGISTRY: dict[str, PromptSpec] = {
     GROUNDED_HOUSEKEEPING_ANSWER.key: GROUNDED_HOUSEKEEPING_ANSWER,
+    COACH_INTENT_ROUTER.key: COACH_INTENT_ROUTER,
+    LEARNING_PROGRESS_COACH.key: LEARNING_PROGRESS_COACH,
+    COURSE_COACH_TURN.key: COURSE_COACH_TURN,
 }
 
 
@@ -45,4 +86,3 @@ def get_prompt(key: str) -> PromptSpec:
         return PROMPT_REGISTRY[key]
     except KeyError as exc:
         raise ValueError(f"Unknown prompt: {key}") from exc
-

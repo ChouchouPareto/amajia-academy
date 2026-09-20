@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from .coach_skills import get_skill, validate_tool_request
 from .coach_tools import get_tool
 from .models import QuestionRequest
-from .prompt_engineering import GROUNDED_HOUSEKEEPING_ANSWER
+from .prompt_engineering import COACH_INTENT_ROUTER, COURSE_COACH_TURN, GROUNDED_HOUSEKEEPING_ANSWER, LEARNING_PROGRESS_COACH
 
 
 class ToolCallPlan(BaseModel):
@@ -55,3 +55,62 @@ def plan_question_answer(question: QuestionRequest) -> CoachPlan:
         may_write_progress=False,
     )
 
+
+def plan_intent_routing() -> CoachPlan:
+    skill = get_skill("understand_coach_intent")
+    tool = get_tool("get_recent_conversation")
+    validate_tool_request(skill.key, tool.name)
+    return CoachPlan(
+        trace_id=str(uuid.uuid4()),
+        skill_key=skill.key,
+        skill_version=skill.version,
+        prompt_key=COACH_INTENT_ROUTER.key,
+        prompt_version=COACH_INTENT_ROUTER.version,
+        tool_calls=[ToolCallPlan(name=tool.name, version=tool.version, access=tool.access, requires_confirmation=tool.requires_confirmation)],
+        may_write_progress=False,
+    )
+
+
+def plan_progress_guidance() -> CoachPlan:
+    skill = get_skill("guide_learning_progress")
+    tool = get_tool("get_learning_state")
+    validate_tool_request(skill.key, tool.name)
+    return CoachPlan(
+        trace_id=str(uuid.uuid4()),
+        skill_key=skill.key,
+        skill_version=skill.version,
+        prompt_key=LEARNING_PROGRESS_COACH.key,
+        prompt_version=LEARNING_PROGRESS_COACH.version,
+        tool_calls=[ToolCallPlan(name=tool.name, version=tool.version, access=tool.access, requires_confirmation=tool.requires_confirmation)],
+        may_write_progress=False,
+    )
+
+
+def plan_course_turn(action: Literal["start_or_resume", "continue", "explain_again", "submit_check", "pause"]) -> CoachPlan:
+    """Select the reviewed Skill and exact Tool boundary for a learning turn."""
+    if action == "submit_check":
+        skill = get_skill("check_understanding")
+        tool_names = ("get_learning_state", "submit_learning_check")
+    else:
+        skill = get_skill("teach_course_in_chat")
+        tool_names = ("get_learning_state",)
+        if action == "start_or_resume":
+            tool_names += ("retrieve_knowledge", "retrieve_media")
+        elif action == "continue":
+            tool_names += ("save_learning_progress",)
+
+    tools: list[ToolCallPlan] = []
+    for tool_name in tool_names:
+        validate_tool_request(skill.key, tool_name)
+        tool = get_tool(tool_name)
+        tools.append(ToolCallPlan(name=tool.name, version=tool.version, access=tool.access, requires_confirmation=tool.requires_confirmation))
+
+    return CoachPlan(
+        trace_id=str(uuid.uuid4()),
+        skill_key=skill.key,
+        skill_version=skill.version,
+        prompt_key=COURSE_COACH_TURN.key,
+        prompt_version=COURSE_COACH_TURN.version,
+        tool_calls=tools,
+        may_write_progress=any(tool.access == "write" for tool in tools),
+    )

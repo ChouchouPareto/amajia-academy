@@ -4,9 +4,11 @@ import hashlib
 import hmac
 import os
 import secrets
+from typing import Literal
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Cookie, Depends, Response
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
@@ -19,6 +21,7 @@ from .models import (
     PrivacyAuditEvent,
     QuestionRequest,
     User,
+    UserLearningPreference,
 )
 from .schemas import DeleteAccountIn, DeleteAccountOut, InviteLoginIn, UserOut
 
@@ -207,6 +210,49 @@ def logout(
     clear_session_cookie(response)
 
 
+class LearningModeIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    preferred_mode: Literal["basic", "coach"]
+
+
+class LearningModeOut(BaseModel):
+    user_id: int
+    preferred_mode: Literal["basic", "coach"]
+    allowed_modes: list[Literal["basic", "coach"]]
+    access_label: str
+
+
+def learning_mode_state(user_id: int, preference: UserLearningPreference | None) -> LearningModeOut:
+    # Internal beta policy only. Paid access requires a separate server-side entitlement.
+    return LearningModeOut(
+        user_id=user_id,
+        preferred_mode=preference.preferred_mode if preference else "basic",
+        allowed_modes=["basic", "coach"],
+        access_label="测试期免费",
+    )
+
+
+@router.get("/learning-mode", response_model=LearningModeOut)
+def get_learning_mode(user: User = Depends(require_current_user), db: Session = Depends(get_db)):
+    return learning_mode_state(user.id, db.get(UserLearningPreference, user.id))
+
+
+@router.put("/learning-mode", response_model=LearningModeOut)
+def save_learning_mode(
+    payload: LearningModeIn,
+    user: User = Depends(require_current_user),
+    db: Session = Depends(get_db),
+):
+    preference = db.get(UserLearningPreference, user.id)
+    if preference is None:
+        preference = UserLearningPreference(user_id=user.id, preferred_mode=payload.preferred_mode)
+        db.add(preference)
+    else:
+        preference.preferred_mode = payload.preferred_mode
+    db.commit()
+    return learning_mode_state(user.id, preference)
+
+
 @router.delete("/me", response_model=DeleteAccountOut)
 def delete_account(
     payload: DeleteAccountIn,
@@ -237,6 +283,7 @@ def delete_account(
     db.execute(delete(QuestionRequest).where(QuestionRequest.user_id == user.id))
     db.execute(delete(LearningSession).where(LearningSession.user_id == user.id))
     db.execute(delete(AuthSession).where(AuthSession.user_id == user.id))
+    db.execute(delete(UserLearningPreference).where(UserLearningPreference.user_id == user.id))
     db.delete(user)
     db.commit()
     clear_session_cookie(response)

@@ -21,6 +21,7 @@ class CoachTool:
 
 
 TOOLS: dict[str, CoachTool] = {
+    "get_recent_conversation": CoachTool("get_recent_conversation", "1.0.0", "读取当前对话的近期消息", "read", False),
     "retrieve_knowledge": CoachTool("retrieve_knowledge", "1.0.0", "检索已审核、已发布的课程知识", "read", False),
     "get_learning_state": CoachTool("get_learning_state", "1.0.0", "读取当前用户的课程与测评状态", "read", False),
     "retrieve_media": CoachTool("retrieve_media", "0.1.0-reserved", "获取已审核且授权有效的标准媒体", "read", False),
@@ -35,4 +36,3 @@ def get_tool(name: str) -> CoachTool:
         return TOOLS[name]
     except KeyError as exc:
         raise ValueError(f"Unknown coach tool: {name}") from exc
-
