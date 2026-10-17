@@ -77,6 +77,7 @@ export function ContentReviewAdmin() {
     <main id="main-content" className="admin-shell">
       <header className="admin-heading"><div><p className="section-kicker">阿嬷学院内部管理</p><h1>内容审核与发布</h1><p>只有来源和必要审核完整的版本才能发布。</p></div><div className="admin-heading-actions"><Link href="/admin/invitations"><UserPlus aria-hidden="true" size={18} />邀请码</Link><button type="button" onClick={() => void load()} disabled={Boolean(busy)}><RefreshCcw aria-hidden="true" size={18} />刷新</button></div></header>
       {notice && <div className="admin-message is-success" role="status"><Check aria-hidden="true" size={18} />{notice}</div>}
+      <Link className="back-link" href="/admin/practice">复述复核与试点数据 →</Link>
       {error && <div className="admin-message is-error" role="alert"><AlertTriangle aria-hidden="true" size={18} />{error}</div>}
       <section className="admin-course-list" aria-label="课程版本列表">
         {versions.map((version) => <CourseReviewCard key={version.id} version={version} busy={busy} mutate={mutate} />)}

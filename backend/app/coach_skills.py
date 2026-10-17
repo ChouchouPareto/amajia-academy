@@ -24,6 +24,12 @@ class CoachSkill:
 
 
 SKILLS: dict[str, CoachSkill] = {
+    "collect_teachback": CoachSkill(
+        key="collect_teachback", version="1.0.0", title="复述与真人反馈",
+        purpose="邀请学员用自己的话说清做法，只记录主动提交，不替代教练或判定上岗",
+        trigger_examples=("我会怎么做", "把我的做法交给教练"),
+        allowed_tools=("get_learning_outcomes", "submit_teachback"), output="review_plan",
+    ),
     "understand_coach_intent": CoachSkill(
         key="understand_coach_intent",
         version="1.0.0",
@@ -39,7 +45,7 @@ SKILLS: dict[str, CoachSkill] = {
         title="进度陪跑与下一步",
         purpose="依据真实学习状态回应进度，推荐下一个行动",
         trigger_examples=("入门学得差不多了", "我接下来学什么"),
-        allowed_tools=("get_learning_state",),
+        allowed_tools=("get_learning_state", "get_learning_outcomes"),
         output="progress_guidance",
     ),
     "answer_housekeeping_question": CoachSkill(

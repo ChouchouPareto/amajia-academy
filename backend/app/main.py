@@ -19,6 +19,7 @@ from .intent_router import keyword_lesson, route_coach_message
 from .knowledge_retrieval import rebuild_course_index, retrieve_published_course, search_published_knowledge
 from .media_service import published_media_for_version
 from .mastery import build_mastery
+from .learning_outcomes import build_outcomes, router as outcomes_router
 from .auth import AuthError, require_current_user, router as auth_router, seed_development_invitations
 from .db import engine, ensure_schema, get_db
 from .assessments import ASSESSMENT_VERSION, public_questions, questions_for, score_answers
@@ -111,9 +112,10 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="阿嬷学院 API", version="0.5.2-beta.2", lifespan=lifespan)
+app = FastAPI(title="阿嬷学院 API", version="0.5.3-beta.2", lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(admin_content_router)
+app.include_router(outcomes_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -134,7 +136,7 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "phase": 4, "version": "0.5.2-beta.1", "mode": "internal_test"}
+    return {"status": "ok", "phase": 4, "version": "0.5.3-beta.2", "mode": "internal_test"}
 
 
 @app.get("/api/v1/lessons", response_model=list[LessonOut])
@@ -196,6 +198,10 @@ def resolve_lesson_id(text: str) -> str | None:
 
 
 def progress_coach_answer(db: Session, user_id: int) -> tuple[str, str | None, str]:
+    outcome = build_outcomes(db, user_id)
+    action = outcome["next_action"]
+    if action["kind"] == "practice":
+        return (f"已完成{outcome['course_completed']}/{outcome['total_courses']}门线上课。{action['reason']}线上答对不代表已经能独立上岗。", action["course_id"], action["label"])
     sessions = list(db.scalars(select(LearningSession).where(LearningSession.user_id == user_id, LearningSession.lesson_id.in_(tuple(COURSE_META)))))
     completed_ids = {session.lesson_id for session in sessions if session.status == "completed"}
     recommended_id = next((course_id for course_id in COURSE_META if course_id not in completed_ids), None)
@@ -581,6 +587,8 @@ def run_coach_turn(payload: CoachTurnIn, user: User = Depends(require_current_us
     correct: bool | None = None
 
     if payload.action == "continue" and session.status != "completed":
+        if payload.expected_step is None:
+            return error_response(422, "EXPECTED_STEP_REQUIRED", "请刷新学习位置后继续")
         if payload.expected_step is not None and payload.expected_step != session.current_step:
             pass  # Safe retry: return current state without advancing twice.
         elif session.current_step < len(steps) - 1:
@@ -595,6 +603,12 @@ def run_coach_turn(payload: CoachTurnIn, user: User = Depends(require_current_us
     elif payload.action == "submit_check":
         if not payload.answer:
             return error_response(422, "ANSWER_REQUIRED", "请选择一个答案")
+        if payload.answer not in {option["id"] for option in lesson.quiz["options"]}:
+            return error_response(422, "INVALID_ANSWER", "请选择这道题的有效答案")
+        if session.status != "completed" and session.status != "checking":
+            return error_response(409, "CHECK_NOT_READY", "先完成当前学习步骤，再进行理解检查")
+        if payload.expected_quiz_attempts is None:
+            return error_response(422, "EXPECTED_ATTEMPTS_REQUIRED", "请刷新检查题后再回答")
         if session.status == "completed":
             correct = True
         elif payload.expected_quiz_attempts is not None and payload.expected_quiz_attempts != session.quiz_attempts:
@@ -619,7 +633,7 @@ def run_coach_turn(payload: CoachTurnIn, user: User = Depends(require_current_us
     if session.status == "completed":
         phase = "completed"
         reply = f"这门课完成了。今天最重要的一句是：{lesson.conclusion}"
-        next_action = "继续下一门课，或先休息一下。"
+        next_action = "用自己的话说说会怎么做；答对不等于实际操作已经通过。"
     elif payload.action == "explain_again":
         phase = "repairing"
         sentence = next((part.strip() for part in re.split(r"[。！？]", str(step["body"])) if part.strip()), str(step["body"]))
@@ -702,6 +716,8 @@ def save_progress(session_id: int, payload: ProgressIn, user: User = Depends(req
         return error_response(422, "INVALID_STEP", "这个学习步骤不存在")
     if session.status == "completed":
         return serialize_session(db, session)
+    if payload.current_step > session.current_step + 1:
+        return error_response(409, "STEP_SKIPPED", "请按顺序完成当前步骤，不能直接跳到结课")
     session.current_step = payload.current_step
     session.status = "learning"
     db.commit()
@@ -721,6 +737,12 @@ def submit_quiz(session_id: int, payload: QuizIn, user: User = Depends(require_c
     version = db.get(CourseVersion, session.course_version_id) if session.course_version_id else None
     quiz = version.quiz if version and version.quiz else lesson.quiz
     steps = version.steps if version and version.steps else lesson.steps
+    if payload.answer not in {option["id"] for option in quiz["options"]}:
+        return error_response(422, "INVALID_ANSWER", "请选择这道题的有效答案")
+    if session.status == "completed":
+        return QuizResult(correct=True, message="这门课的理解检查已完成，无需重复提交。", session=serialize_session(db, session))
+    if session.current_step != len(steps) - 1:
+        return error_response(409, "CHECK_NOT_READY", "先完成课程步骤，再进行理解检查")
     session.quiz_attempts += 1
     correct = payload.answer == quiz["correct_answer"]
     if correct:
@@ -896,7 +918,7 @@ def start_assessment(kind: str, payload: AssessmentStartIn, user: User = Depends
                 )
             )
             if len({item.lesson_id for item in completed}) < len(COURSE_META):
-                return error_response(409, "POST_ASSESSMENT_LOCKED", "完成六门家政入门课后，再来看看自己学会了多少。")
+                return error_response(409, "POST_ASSESSMENT_LOCKED", f"完成{len(COURSE_META)}门家政入门课后，再来看看自己学会了多少。")
         existing = AssessmentAttempt(
             user_id=payload.user_id,
             kind=kind,
@@ -1005,9 +1027,14 @@ def learning_report(user_id: int, user: User = Depends(require_current_user), db
         )
     )
     missing = [name for name, value in (("pre_assessment", pre), ("post_assessment", post)) if value is None]
+    post_results = score_answers("post", post.answers, post.assessment_version)[2] if post else {}
     if missing:
-        return LearningReportOut(report_status="incomplete", completed_core_courses=len({item.lesson_id for item in completed}), missing=missing)
-    _, _, post_results = score_answers("post", post.answers, post.assessment_version)
+        return LearningReportOut(
+            report_status="incomplete", pre_score=pre.score if pre else None, post_score=post.score if post else None,
+            mastered_knowledge_points=[name for name, correct in post_results.items() if correct],
+            review_knowledge_points=[name for name, correct in post_results.items() if not correct],
+            completed_core_courses=len({item.lesson_id for item in completed}), missing=missing,
+        )
     improvement = int(post.score or 0) - int(pre.score or 0)
     return LearningReportOut(
         report_status="complete",

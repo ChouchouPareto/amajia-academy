@@ -231,6 +231,27 @@ class QuestionRequest(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
+class PracticeAttempt(Base):
+    """A learner's teach-back, not proof of practical job competence."""
+    __tablename__ = "practice_attempts"
+    __table_args__ = (
+        UniqueConstraint("session_id", "attempt_no", name="uq_practice_attempt"),
+        UniqueConstraint("user_id", "idempotency_key", name="uq_practice_key"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("learning_sessions.id"), index=True)
+    attempt_no: Mapped[int] = mapped_column(Integer)
+    idempotency_key: Mapped[str] = mapped_column(String(80))
+    response_text: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(24), default="submitted", index=True)
+    feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    criteria: Mapped[dict[str, bool]] = mapped_column(JSON, default=dict)
+    reviewer_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class AssessmentAttempt(Base):
     __tablename__ = "assessment_attempts"
     __table_args__ = (

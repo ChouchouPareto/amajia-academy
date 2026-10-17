@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { AppHeader } from "@/components/AppHeader";
+import { LearningOutcomeSummary } from "@/features/coach/LearningOutcomeSummary";
 import { AppError, getLearningMastery, getLearningRecords } from "@/lib/api";
 import type { LearningSession, MasteryOverview } from "@/lib/types";
 
@@ -40,12 +41,13 @@ export function RecordsView() {
       <AppHeader current="records" />
       <section className="records-intro"><h1>学习记录</h1><p>看看已经学了什么，接着上次继续。</p></section>
       {mastery && <MasterySummary mastery={mastery} />}
+      <LearningOutcomeSummary />
       {records === null && !error && <div className="loading-card"><span className="loading-dots" aria-hidden="true"><i /><i /><i /></span><strong>正在加载学习记录</strong></div>}
       {error && <section className="empty-records"><div className="state-icon state-icon--sky"><RefreshCcw aria-hidden="true" size={34} /></div><h2>暂时加载不出来</h2><p>{error}</p><button className="rainbow-button" type="button" onClick={() => void load()}><span>再试一次</span><ArrowRight aria-hidden="true" size={22} /></button></section>}
       {records?.length === 0 && <section className="empty-records"><div className="state-icon state-icon--sky"><BookOpen aria-hidden="true" size={34} /></div><h2>还没有学习记录</h2><p>开始一门课程，学习位置就会保存在这里。</p><Link className="rainbow-button" href="/housekeeping"><span>浏览家政课</span><ArrowRight aria-hidden="true" size={22} /></Link></section>}
       {learning.length > 0 && <RecordGroup title="学习中" records={learning} />}
       {completed.length > 0 && <RecordGroup title="已完成" records={completed} />}
-      <footer className="prototype-note">记录已保存到学习服务 · 当前使用本地测试身份</footer>
+      <footer className="prototype-note">课程学习、线上理解与实际操作是不同阶段</footer>
     </main>
   );
 }

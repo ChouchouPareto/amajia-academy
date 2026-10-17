@@ -21,6 +21,8 @@ class CoachTool:
 
 
 TOOLS: dict[str, CoachTool] = {
+    "get_learning_outcomes": CoachTool("get_learning_outcomes", "1.0.0", "读取课程完成与人工复述复核，不能推断实操通过", "read", False),
+    "submit_teachback": CoachTool("submit_teachback", "1.0.0", "保存用户明确提交的复述，不能替代人工审核", "write", True),
     "get_recent_conversation": CoachTool("get_recent_conversation", "1.0.0", "读取当前对话的近期消息", "read", False),
     "retrieve_knowledge": CoachTool("retrieve_knowledge", "1.0.0", "检索已审核、已发布的课程知识", "read", False),
     "get_learning_state": CoachTool("get_learning_state", "1.0.0", "读取当前用户的课程与测评状态", "read", False),

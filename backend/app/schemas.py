@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, field_serializer
 
 
 class UserOut(BaseModel):
@@ -71,6 +71,11 @@ class LessonOut(BaseModel):
     steps: list[dict[str, str]]
     quiz: dict[str, object]
     content_status: str
+
+    @field_serializer("quiz")
+    def public_quiz(self, quiz):
+        # Answers belong to the server; feedback is returned only after submission.
+        return {key: quiz[key] for key in ("question", "options") if key in quiz}
 
 
 class StartLessonIn(BaseModel):

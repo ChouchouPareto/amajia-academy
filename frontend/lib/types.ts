@@ -43,7 +43,6 @@ export type Lesson = {
   quiz: {
     question: string;
     options: QuizOption[];
-    correct_answer: string;
   };
   content_status: string;
 };

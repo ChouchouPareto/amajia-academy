@@ -64,7 +64,7 @@ def _deterministic_route(text: str) -> RouteResult | None:
     normalized = text.strip().lower().rstrip("。！？!?,，")
     if normalized in ("继续", "接着", "懂了", "听懂了", "下一课"):
         return RouteResult("continue_learning", None, 0.98, "你想接着学习", "rule")
-    if any(term in normalized for term in ("学到哪", "学了多少", "学得差不多", "学差不多", "学完了吗", "进度")):
+    if any(term in normalized for term in ("学到哪", "学了多少", "学得差不多", "学差不多", "学完了吗", "进度", "复述", "复核", "哪里还不会", "学会了吗")):
         return RouteResult("learning_progress", None, 0.98, "你想知道自己的学习进度和下一步", "rule")
     if any(term in normalized for term in ("继续学", "下一门", "接着学", "下一步")):
         return RouteResult("continue_learning", None, 0.98, "你想继续学下一门家政课", "rule")

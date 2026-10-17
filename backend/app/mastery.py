@@ -99,7 +99,7 @@ def build_mastery(db: Session, user_id: int) -> dict[str, object]:
         if completed:
             quiz_points = max(10, 20 - max(session.quiz_attempts - 1, 0) * 4)
             score += quiz_points
-            evidence.append("随堂理解检查已通过")
+            evidence.append("随堂理解检查已通过（不等于实操通过）")
         if post_evidence:
             score += post_evidence.ratio * 30
             evidence.append("已完成学习后测")

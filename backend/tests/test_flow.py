@@ -1,5 +1,4 @@
 import os
-import secrets
 from pathlib import Path
 
 TEST_DB = Path(__file__).parent / "phase1-test.db"
@@ -7,8 +6,6 @@ if TEST_DB.exists():
     TEST_DB.unlink()
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB}"
 os.environ["DASHSCOPE_API_KEY"] = ""
-os.environ["LEARNER_INVITE_CODE"] = secrets.token_urlsafe(24)
-os.environ["ADMIN_INVITE_CODE"] = secrets.token_urlsafe(24)
 
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -29,15 +26,21 @@ from app.db import engine  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 
-def login_with_invite(client: TestClient, code: str | None = None, name: str = "体验学员"):
-    code = code or os.environ["LEARNER_INVITE_CODE"]
+def quiz_answer(lesson_id, version_id=None):
+    from app.models import Lesson
+    with Session(engine) as db:
+        item = db.get(CourseVersion, version_id) if version_id else db.get(Lesson, lesson_id)
+        return item.quiz["correct_answer"]
+
+
+def login_with_invite(client: TestClient, code: str = os.environ["LEARNER_INVITE_CODE"], name: str = "体验学员"):
     response = client.post(
         "/api/v1/auth/invite-login",
         json={
             "invitation_code": code,
             "display_name": name,
             "consent_accepted": True,
-            "consent_version": "2026-08-28-v1",
+            "consent_version": "2026-10-17-v2",
         },
     )
     assert response.status_code == 200
@@ -56,7 +59,7 @@ def test_prompt_and_skill_engineering_contracts():
 
     assert {"understand_coach_intent", "guide_learning_progress"}.issubset(SKILLS)
     assert COACH_INTENT_ROUTER.version == "coach-intent-v1"
-    assert LEARNING_PROGRESS_COACH.version == "learning-progress-v1"
+    assert LEARNING_PROGRESS_COACH.version == "learning-progress-v2"
     assert COURSE_COACH_TURN.version == "course-coach-turn-v1"
     validate_tool_request("teach_course_in_chat", "save_learning_progress")
     try:
@@ -170,7 +173,7 @@ def test_phase1_learning_flow():
         assert health.status_code == 200
         assert health.json()["mode"] == "internal_test"
         assert health.json()["phase"] == 4
-        assert health.json()["version"] == "0.5.2-beta.1"
+        assert health.json()["version"] == "0.5.3-beta.2"
 
         assert client.get("/api/v1/lessons").status_code == 401
         user = login_with_invite(client)
@@ -181,7 +184,8 @@ def test_phase1_learning_flow():
         assert len(lessons) == 12
         assert lessons[0]["content_status"] == "internal_test_candidate"
         lesson_id = lessons[0]["id"]
-        correct_answer = lessons[0]["quiz"]["correct_answer"]
+        assert "correct_answer" not in lessons[0]["quiz"]
+        correct_answer = quiz_answer(lessons[0]["id"])
         wrong_answer = next(option["id"] for option in lessons[0]["quiz"]["options"] if option["id"] != correct_answer)
 
         started = client.post(
@@ -204,6 +208,9 @@ def test_phase1_learning_flow():
             f"/api/v1/learning/sessions/{session_id}/progress", json={"current_step": 9}
         )
         assert invalid.status_code == 422
+
+        for step in range(2, len(started["lesson"]["steps"])):
+            assert client.post(f"/api/v1/learning/sessions/{session_id}/progress", json={"current_step": step}).status_code == 200
 
         wrong = client.post(
             f"/api/v1/learning/sessions/{session_id}/quiz", json={"answer": wrong_answer}
@@ -266,7 +273,8 @@ def test_professional_coach_turn_loop_is_stateful_and_retry_safe():
         ).json()
         assert repeated["session"]["current_step"] == session["current_step"]
 
-        correct_answer = session["lesson"]["quiz"]["correct_answer"]
+        assert "correct_answer" not in session["lesson"]["quiz"]
+        correct_answer = quiz_answer(session["lesson_id"], session["course_version_id"])
         wrong_answer = next(option["id"] for option in session["lesson"]["quiz"]["options"] if option["id"] != correct_answer)
         wrong = client.post(
             "/api/v1/coach/turns",
@@ -487,9 +495,11 @@ def test_housekeeping_assessment_and_report_flow():
             ).json()
             correct = client.get("/api/v1/lessons").json()
             lesson = next(item for item in correct if item["id"] == course["id"])
+            for step in range(session["current_step"] + 1, len(session["lesson"]["steps"])):
+                assert client.post(f"/api/v1/learning/sessions/{session['id']}/progress", json={"current_step": step}).status_code == 200
             quiz = client.post(
                 f"/api/v1/learning/sessions/{session['id']}/quiz",
-                json={"answer": lesson["quiz"]["correct_answer"]},
+                json={"answer": quiz_answer(lesson["id"], session["course_version_id"])},
             )
             assert quiz.status_code == 200
             assert quiz.json()["correct"] is True
@@ -743,7 +753,7 @@ def test_role_authorization_logout_and_account_deletion():
                 "invitation_code": os.environ["LEARNER_INVITE_CODE"],
                 "display_name": "体验学员",
                 "consent_accepted": True,
-                "consent_version": "2026-08-28-v1",
+                "consent_version": "2026-10-17-v2",
             },
         ).status_code == 401
 

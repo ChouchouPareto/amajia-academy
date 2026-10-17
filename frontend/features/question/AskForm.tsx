@@ -7,6 +7,9 @@ import { FormEvent, useEffect, useImperativeHandle, useRef, useState } from "rea
 
 import { SpeakButton } from "@/components/SpeakButton";
 import { CoachJourneyPrompt } from "@/features/coach/CoachJourneyPrompt";
+import { PracticeReflection, type PracticeControls } from "@/features/coach/PracticeReflection";
+import { useReturnRefresh } from "@/lib/use-return-refresh";
+import { getOutcomes, type LearningOutcomes } from "@/lib/outcomes";
 import { HomeVersionSelector } from "@/features/home/HomeVersionSelector";
 import { answerQuestion, AppError, confirmQuestion, createCoachConversation, createQuestion, getCoachConversationQuestions, getCoachConversations, getLearningMastery, getLearningMedia, getLearningOverview, runCoachTurn } from "@/lib/api";
 import type { CoachConversation, LearningOverview, LearningSession, MasteryOverview, MediaAsset, QuestionRequest } from "@/lib/types";
@@ -47,7 +50,10 @@ export function AskForm({ initialQuestion, initialConversationId }: { initialQue
   const [overviewError, setOverviewError] = useState("");
   const [overviewAttempt, setOverviewAttempt] = useState(0);
   const [mastery, setMastery] = useState<MasteryOverview | null>(null);
+  const [outcomes, setOutcomes] = useState<LearningOutcomes | null>(null);
   const [startingJourney, setStartingJourney] = useState(false);
+  const [practiceMode, setPracticeMode] = useState(false);
+  const returned = useReturnRefresh();
 
   useEffect(() => {
     let active = true;
@@ -81,12 +87,12 @@ export function AskForm({ initialQuestion, initialConversationId }: { initialQue
 
   useEffect(() => {
     let active = true;
-    getLearningOverview().then((value) => { if (active) setOverview(value); })
+    Promise.all([getLearningOverview(), getOutcomes()]).then(([value, learningOutcomes]) => { if (active) { setOverview(value); setOutcomes(learningOutcomes); setOverviewError(""); } })
       .catch((caught) => { if (active) setOverviewError(caught instanceof Error ? caught.message : "请稍后再试。"); })
       .finally(() => { if (active) setOverviewLoading(false); });
     getLearningMastery().then((value) => { if (active) setMastery(value); }).catch(() => undefined);
     return () => { active = false; };
-  }, [overviewAttempt]);
+  }, [overviewAttempt, returned]);
 
   useEffect(() => { if (result) requestAnimationFrame(() => resultRef.current?.focus()); }, [result]);
   useEffect(() => {
@@ -98,7 +104,7 @@ export function AskForm({ initialQuestion, initialConversationId }: { initialQue
   function validate() {
     const value = question.trim();
     if (!value) return "先说一句话，我在听。";
-    if (value.length > 200) return "问题有点长，请精简到200字以内。";
+    if (value.length > (practiceMode ? 1200 : 200)) return practiceMode ? "做法请控制在1200字以内。" : "问题有点长，请精简到200字以内。";
     return "";
   }
 
@@ -114,6 +120,7 @@ export function AskForm({ initialQuestion, initialConversationId }: { initialQue
         setQuestion(""); idempotencyRef.current = null;
         return;
       }
+      if (practiceMode) { setError("复述状态已变化，请先取消对话框作答并刷新记录。你的文字还在，不会转成普通提问。"); return; }
       idempotencyRef.current ??= crypto.randomUUID();
       const activeConversationId = conversationId ?? await (conversationBootRef.current ??= createCoachConversation().then((item) => item.id));
       setConversationId(activeConversationId);
@@ -153,13 +160,14 @@ export function AskForm({ initialQuestion, initialConversationId }: { initialQue
   }
   async function continueLearning() {
     if (!result?.lesson_id) return;
-    setLearningSession(await confirmQuestion(result.id));
+    try { setLearningSession(await confirmQuestion(result.id)); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : "课程暂时打不开，请重试。"); }
   }
 
   async function continueJourneyCourse(courseId?: string | null) {
     const targetCourseId = courseId ?? overview?.recommended_course_id;
     if (!targetCourseId) return;
-    setStartingJourney(true); setError("");
+    setStartingJourney(true); setError(""); setPracticeMode(false);
     try {
       const turn = await runCoachTurn({ action: "start_or_resume", course_id: targetCourseId });
       setResult(null);
@@ -173,6 +181,7 @@ export function AskForm({ initialQuestion, initialConversationId }: { initialQue
   function refreshOverview() {
     getLearningOverview().then(setOverview).catch(() => undefined);
     getLearningMastery().then(setMastery).catch(() => undefined);
+    getOutcomes().then(setOutcomes).catch(() => undefined);
   }
 
   return <main id="main-content" className="coach-shell">
@@ -189,21 +198,22 @@ export function AskForm({ initialQuestion, initialConversationId }: { initialQue
           <article className="coach-user-turn" aria-label="你的消息"><p>{item.original_text}</p></article>
           <article className="coach-assistant-turn" aria-label="老师的回复"><div className="coach-answer-label"><Sparkles aria-hidden="true" size={17} /><strong>阿嬷 AI 老师</strong></div><p>{item.answer ?? item.message}</p></article>
         </div>)}
-        {!result && !learningSession && <CoachJourneyPrompt overview={overview} mastery={mastery} starting={startingJourney} loading={overviewLoading} error={overviewError} onRetry={() => { setOverviewLoading(true); setOverviewError(""); setOverviewAttempt((value) => value + 1); }} examples={examples} onContinueCourse={(courseId) => void continueJourneyCourse(courseId)} onChooseExample={chooseExample} />}
+        {!result && !learningSession && <CoachJourneyPrompt overview={overview} mastery={mastery} outcomes={outcomes} starting={startingJourney} loading={overviewLoading} error={overviewError} onRetry={() => { setOverviewLoading(true); setOverviewError(""); setOverviewAttempt((value) => value + 1); }} examples={examples} onContinueCourse={(courseId) => void continueJourneyCourse(courseId)} onChooseExample={chooseExample} />}
         {result && <article className="coach-user-turn" aria-label="你的问题"><span>你问</span><p>{result.original_text}</p></article>}
         {result && <QuestionResult ref={resultRef} result={result} learningStarted={Boolean(learningSession)} onContinue={continueLearning} onAskAgain={askAgain} />}
-        {learningSession && <CoachLesson key={learningSession.id} ref={lessonControlsRef} session={learningSession} onSessionChange={setLearningSession} onCompleted={refreshOverview} />}
+        {learningSession && <CoachLesson key={learningSession.id} ref={lessonControlsRef} session={learningSession} onSessionChange={setLearningSession} onCompleted={refreshOverview} composerActive={practiceMode} onComposerModeChange={setPracticeMode} onNext={() => { refreshOverview(); setPracticeMode(false); setLearningSession(null); setResult(null); }} />}
       </div>
     </section>
 
     {(error || voiceMessage) && <div ref={errorRef} className={`coach-notice ${error ? "is-error" : ""}`} role={error ? "alert" : "status"} tabIndex={error ? -1 : undefined}>{error || voiceMessage}</div>}
     <div className="coach-composer-wrap">
+      {practiceMode && <div className="outcome-composer-mode"><span role="status">正在描述做法 · 填入后需确认提交</span><button type="button" onClick={() => setPracticeMode(false)}>先问问题</button></div>}
       <form className="coach-composer" onSubmit={submit} noValidate>
         <button className="composer-side-button" type="button" onClick={() => setDrawerOpen(true)} aria-label="打开学习菜单"><Plus aria-hidden="true" size={25} /></button>
-        <label className="sr-only" htmlFor="coach-question">写下家政问题</label>
-        <textarea id="coach-question" value={question} onChange={(event) => { setQuestion(event.target.value); idempotencyRef.current = null; if (error) setError(""); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-describedby="coach-question-help" aria-invalid={Boolean(error)} placeholder={listening ? "正在听你说…" : "发消息或点话筒说话"} rows={1} maxLength={200} disabled={submitting} />
-        <span className="sr-only" id="coach-question-help">一次只问一个问题，最多200字</span>
-        {question.trim() ? <button className="composer-submit" type="submit" disabled={submitting} aria-label={submitting ? "正在查找回答" : "发送问题"}>{submitting ? <span className="composer-loader" aria-hidden="true" /> : <SendHorizontal aria-hidden="true" size={23} />}</button> : <button className={`composer-mic ${listening ? "is-listening" : ""}`} type="button" onClick={toggleVoiceInput} disabled={submitting} aria-label={listening ? "停止听写" : "语音输入"} aria-pressed={listening}><Mic aria-hidden="true" size={24} /></button>}
+        <label className="sr-only" htmlFor="coach-question">{practiceMode ? "描述我的做法" : "写下家政问题"}</label>
+        <textarea id="coach-question" value={question} onChange={(event) => { setQuestion(event.target.value); idempotencyRef.current = null; if (error) setError(""); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} aria-describedby="coach-question-help" aria-invalid={Boolean(error)} placeholder={listening ? "正在听你说…" : practiceMode ? "说说你的做法，确认后再提交" : "发消息或点话筒说话"} rows={1} maxLength={practiceMode ? 1200 : 200} disabled={submitting} />
+        <span className="sr-only" id="coach-question-help">{practiceMode ? "最多1200字，只填入草稿，不自动提交教练" : "一次只问一个问题，最多200字"}</span>
+        {question.trim() ? <button className="composer-submit" type="submit" disabled={submitting} aria-label={submitting ? "正在处理" : practiceMode ? "填入我的做法" : "发送问题"}>{submitting ? <span className="composer-loader" aria-hidden="true" /> : <SendHorizontal aria-hidden="true" size={23} />}</button> : <button className={`composer-mic ${listening ? "is-listening" : ""}`} type="button" onClick={toggleVoiceInput} disabled={submitting} aria-label={listening ? "停止听写" : "语音输入"} aria-pressed={listening}><Mic aria-hidden="true" size={24} /></button>}
       </form>
       <p className="coach-footnote"><ShieldCheck aria-hidden="true" size={14} />测试期免费 · AI 建议需结合实际核实</p>
     </div>
@@ -256,8 +266,9 @@ function QuestionResult({ ref, result, learningStarted, onContinue, onAskAgain }
   </section>;
 }
 
-function CoachLesson({ ref, session, onSessionChange, onCompleted }: { ref: React.Ref<LessonControls>; session: LearningSession; onSessionChange: (session: LearningSession) => void; onCompleted: () => void }) {
+function CoachLesson({ ref, session, onSessionChange, onCompleted, onNext, onComposerModeChange, composerActive }: { ref: React.Ref<LessonControls>; session: LearningSession; onSessionChange: (session: LearningSession) => void; onCompleted: () => void; onNext: () => void; onComposerModeChange: (active: boolean) => void; composerActive: boolean }) {
   const actionLockRef = useRef(false);
+  const practiceRef = useRef<PracticeControls>(null);
   const [phase, setPhase] = useState<"step" | "quiz" | "complete">(session.status === "completed" ? "complete" : session.status === "checking" ? "quiz" : "step");
   const [stepIndex, setStepIndex] = useState(session.current_step);
   const [acknowledgedSteps, setAcknowledgedSteps] = useState<number[]>([]);
@@ -290,15 +301,16 @@ function CoachLesson({ ref, session, onSessionChange, onCompleted }: { ref: Reac
     finally { actionLockRef.current = false; setSaving(false); }
   }
 
-  async function checkAnswer() {
-    if (!answer) return;
+  async function checkAnswer(selected = answer) {
+    if (!selected || actionLockRef.current) return;
+    actionLockRef.current = true;
     setSaving(true); setFeedback("");
     try {
-      const turn = await runCoachTurn({ action: "submit_check", session_id: session.id, answer, expected_quiz_attempts: session.quiz_attempts });
-      onSessionChange(turn.session); setCheckedAnswer(answer); setFeedback(turn.reply_text);
-      if (turn.correct) window.setTimeout(() => { setPhase("complete"); onCompleted(); }, 500);
+      const turn = await runCoachTurn({ action: "submit_check", session_id: session.id, answer: selected, expected_quiz_attempts: session.quiz_attempts });
+      onSessionChange(turn.session); setCheckedAnswer(selected); setFeedback(turn.reply_text);
+      if (turn.correct) { setPhase("complete"); onCompleted(); }
     } catch (caught) { setFeedback(caught instanceof AppError ? caught.message : "答案没有提交成功，请再试一次。"); }
-    finally { setSaving(false); }
+    finally { actionLockRef.current = false; setSaving(false); }
   }
 
   async function explainAgain() {
@@ -314,8 +326,19 @@ function CoachLesson({ ref, session, onSessionChange, onCompleted }: { ref: Reac
 
   useImperativeHandle(ref, () => ({
     async reply(text: string) {
-      if (phase !== "step") return false;
+      if (phase === "complete" && practiceRef.current?.acceptDraft(text)) return true;
       const value = text.replace(/[\s。！？!?,，]/g, "");
+      if (phase === "complete" && ["继续", "下一课", "下一步"].includes(value)) { onNext(); return true; }
+      if (phase === "quiz") {
+        const option = lesson.quiz.options.find((item) => [item.id, `选${item.id}`, `我选${item.id}`, item.label].some((label) => label.toLowerCase() === value.toLowerCase()));
+        if (option) { setAnswer(option.id); await checkAnswer(option.id); return true; }
+        if (["没懂", "没听懂", "不会", "再说一遍"].includes(value)) {
+          setFeedback("可以直接说选 A、选 B，或点一下符合你想法的答案。也可以继续问老师具体哪里不懂。");
+          return true;
+        }
+        return false;
+      }
+      if (phase !== "step") return false;
       if (["继续", "接着", "懂了", "听懂了", "听懂了继续", "继续讲", "下一步"].includes(value)) { await acknowledgeStep(); return true; }
       if (["没懂", "没听懂", "不懂", "再讲一遍", "再说一遍"].includes(value)) { await explainAgain(); return true; }
       return false;
@@ -345,7 +368,7 @@ function CoachLesson({ ref, session, onSessionChange, onCompleted }: { ref: Reac
     </section>;
   }
 
-  return <section className="coach-live-lesson coach-lesson-complete" aria-live="polite"><article className="coach-lesson-message"><div className="coach-complete-mark"><Check aria-hidden="true" size={28} /></div><p className="coach-kicker">学习记录已经同步</p><h2>这门课已学完</h2><p className="coach-answer-copy">做得很好。记住今天最重要的一句：{lesson.conclusion}</p><p>可以继续问我，也可以休息一下。下次我会从新的内容接着陪你学。</p><button className="coach-text-action" type="button" onClick={() => { setPhase("step"); setStepIndex(0); setAcknowledgedSteps([]); }}>再听老师讲一遍</button></article></section>;
+  return <section className="coach-live-lesson coach-lesson-complete"><article className="coach-lesson-message"><p className="coach-kicker">学习记录已经同步</p><h2>这门课的理解检查已完成</h2><p className="coach-answer-copy">记住今天最重要的一句：{lesson.conclusion}</p><PracticeReflection ref={practiceRef} sessionId={session.id} onSaved={onCompleted} composerActive={composerActive} onComposerModeChange={onComposerModeChange} /><button className="v2-secondary" type="button" onClick={onNext}>看看下一步</button><details className="v2-more"><summary>再看课程要点</summary>{lesson.steps.map((item, index) => <div key={index}><h3>{item.title}</h3><p>{item.body}</p></div>)}</details></article></section>;
 }
 
 function CoachMediaCard({ asset }: { asset: MediaAsset }) {

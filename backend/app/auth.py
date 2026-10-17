@@ -19,6 +19,8 @@ from .models import (
     Invitation,
     LearningSession,
     PrivacyAuditEvent,
+    PracticeAttempt,
+    CoachConversation,
     QuestionRequest,
     User,
     UserLearningPreference,
@@ -28,7 +30,7 @@ from .schemas import DeleteAccountIn, DeleteAccountOut, InviteLoginIn, UserOut
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 SESSION_COOKIE = "amajia_session"
-CURRENT_PRIVACY_VERSION = "2026-08-28-v1"
+CURRENT_PRIVACY_VERSION = "2026-10-17-v2"
 SESSION_DAYS = 14
 
 
@@ -279,8 +281,11 @@ def delete_account(
         .where(Invitation.claimed_by_user_id == user.id)
         .values(active=False, claimed_by_user_id=None)
     )
+    db.execute(delete(PracticeAttempt).where(PracticeAttempt.user_id == user.id))
+    db.execute(update(PracticeAttempt).where(PracticeAttempt.reviewer_id == user.id).values(reviewer_id=None))
     db.execute(delete(AssessmentAttempt).where(AssessmentAttempt.user_id == user.id))
     db.execute(delete(QuestionRequest).where(QuestionRequest.user_id == user.id))
+    db.execute(delete(CoachConversation).where(CoachConversation.user_id == user.id))
     db.execute(delete(LearningSession).where(LearningSession.user_id == user.id))
     db.execute(delete(AuthSession).where(AuthSession.user_id == user.id))
     db.execute(delete(UserLearningPreference).where(UserLearningPreference.user_id == user.id))

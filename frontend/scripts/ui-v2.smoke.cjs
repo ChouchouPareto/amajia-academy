@@ -7,7 +7,6 @@ const path = require("node:path");
 (async () => {
   const base = process.env.UI_TEST_URL || "http://127.0.0.1:3018";
   if (!["127.0.0.1", "localhost"].includes(new URL(base).hostname)) throw new Error("Use a local isolated preview.");
-  if (!process.env.UI_TEST_INVITE) throw new Error("Set UI_TEST_INVITE for an isolated test account.");
   const out = process.env.UI_TEST_OUTPUT || "/tmp/amajia-ui-v2-screens";
   await fs.mkdir(out, { recursive: true });
   const browser = await chromium.launch({ headless: true, channel: process.env.UI_TEST_BROWSER || "chrome" });
@@ -18,7 +17,8 @@ const path = require("node:path");
   async function screenshot(name) { await page.screenshot({ path: path.join(out, name + ".png"), fullPage: true }); }
   async function mode() { return (await context.request.get(base + "/backend/api/v1/auth/learning-mode")).json(); }
   try {
-    await context.request.post(base + "/backend/api/v1/auth/invite-login", { data: { invitation_code: process.env.UI_TEST_INVITE, display_name: "界面验收", consent_accepted: true, consent_version: "2026-08-28-v1" } });
+    if (!process.env.UI_TEST_INVITE) throw new Error("UI_TEST_INVITE is required for an isolated test account.");
+    await context.request.post(base + "/backend/api/v1/auth/invite-login", { data: { invitation_code: process.env.UI_TEST_INVITE, display_name: "界面验收", consent_accepted: true, consent_version: "2026-10-17-v2" } });
     await context.request.put(base + "/backend/api/v1/auth/learning-mode", { data: { preferred_mode: "basic" } });
     await context.request.post(base + "/backend/api/v1/auth/logout");
     await page.goto(base + "/");

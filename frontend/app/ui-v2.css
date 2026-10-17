@@ -1,4 +1,29 @@
 /* UI fusion V2: explicit surface hierarchy; shared spacing and left-aligned content. */
+.outcome-composer-mode { margin: 0 0 8px; color: var(--ink-soft); font-size: 14px; text-align: left; }
+.outcome-composer-mode { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.outcome-composer-mode button { min-height: 44px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface); color: var(--ink); cursor: pointer; }
+.outcome-reflection textarea { scroll-margin-block: 120px 180px; }
+.outcome-reflection summary { min-height: 44px; display: list-item; list-style: disclosure-closed inside; padding-block: 10px; cursor: pointer; }
+.outcome-reflection details[open] > summary { list-style-type: disclosure-open; }
+.outcome-reflection label { display: block; margin-top: 12px; }
+.outcome-summary, .outcome-reflection { margin-block: 20px; padding: 22px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); color: var(--body); text-align: left; box-shadow: var(--shadow-soft); }
+.outcome-reflection { box-shadow: none; }
+.outcome-summary h2, .outcome-reflection h3 { margin: 0 0 12px; font-size: 22px; line-height: 1.4; color: var(--ink); }
+.outcome-summary p, .outcome-reflection p { font-size: 16px; line-height: 1.7; margin-block: 12px; overflow-wrap: anywhere; }
+.outcome-summary .outcome-note, .outcome-reflection .outcome-note { font-size: 14px; color: var(--helper); }
+.outcome-summary textarea, .outcome-reflection textarea { display: block; width: 100%; resize: vertical; min-height: 112px; border: 1px solid var(--line-strong); border-radius: 12px; padding: 14px; font: inherit; font-size: 16px; line-height: 1.65; background: var(--canvas); color: var(--ink); box-shadow: var(--shadow-inset); margin-block: 10px; }
+.outcome-summary summary { cursor: pointer; min-height: 48px; padding-block: 12px; font-size: 16px; }
+.outcome-quote, .outcome-feedback { padding: 16px; margin-inline: 0; background: var(--canvas); border-radius: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.outcome-checkbox { display: flex; align-items: center; gap: 12px; min-height: 48px; cursor: pointer; }
+.outcome-checkbox input { width: 20px; height: 20px; accent-color: var(--v2-primary); }
+.outcome-summary fieldset { margin: 16px 0; border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.outcome-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+.outcome-actions button { min-height: 48px; }
+.outcome-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.outcome-metrics div { padding: 14px; background: var(--canvas); border-radius: 12px; }
+.outcome-metrics dt { font-size: 14px; color: var(--helper); }
+.outcome-metrics dd { font-size: 26px; color: var(--ink); margin: 8px 0 0; }
+@media (max-width: 480px) { .outcome-summary, .outcome-reflection { padding: 16px; } .outcome-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 :root {
   --ink: #08304c;
   --ink-soft: #195b4a;

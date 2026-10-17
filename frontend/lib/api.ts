@@ -23,7 +23,7 @@ export function saveLearningMode(mode: LearningMode) {
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "/backend";
-export const CURRENT_PRIVACY_VERSION = "2026-08-28-v1";
+export const CURRENT_PRIVACY_VERSION = "2026-10-17-v2";
 
 export class AppError extends Error {
   constructor(
@@ -48,7 +48,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
       },
     });
   } catch {
-    throw new AppError("现在连接不上学习服务，请确认本地服务已启动。", "NETWORK_ERROR", true);
+    throw new AppError("暂时连不上学习服务，请检查网络后重试。已保存的进度不会丢失。", "NETWORK_ERROR", true);
   }
 
   if (!response.ok) {

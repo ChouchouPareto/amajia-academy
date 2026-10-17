@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { answerQuestion, AppError, confirmQuestion, getLearningSession, getQuestion, saveLearningProgress, submitQuiz } from "@/lib/api";
 import type { LearningSession, Lesson, QuestionRequest } from "@/lib/types";
 import { SpeakButton } from "@/components/SpeakButton";
+import { PracticeReflection } from "@/features/coach/PracticeReflection";
 
 type View = "recovering" | "confirm" | "processing" | "ai_answer" | "conclusion" | "step" | "quiz" | "complete" | "blocked" | "no_match" | "failed";
 const processingMessages = ["正在进行安全检查", "正在查找已审核课程", "正在整理回答和来源"];
@@ -122,6 +123,7 @@ export function LearningFlow({ sessionId }: { sessionId: string }) {
       {view === "step" && lesson && <StepView lesson={lesson} currentStep={currentStep} progress={progress} saving={saving} feedback={feedback} onNext={nextStep} />}
       {view === "quiz" && lesson && <QuizView lesson={lesson} answer={answer} feedback={feedback} saving={saving} onAnswer={(value) => { setAnswer(value); setFeedback(""); }} onSubmit={checkAnswer} />}
       {view === "complete" && lesson && <CompleteView lesson={lesson} />}
+      {view === "complete" && learningSession && <PracticeReflection sessionId={learningSession.id} />}
       {view === "blocked" && questionRequest && <BlockedView result={questionRequest} />}
       {view === "no_match" && questionRequest && <NoMatchView result={questionRequest} />}
       {view === "failed" && <FailedView message={error} />}

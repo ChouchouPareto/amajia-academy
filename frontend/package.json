@@ -1,6 +1,6 @@
 {
   "name": "amajia-academy-frontend",
-  "version": "0.5.2-beta.2",
+  "version": "0.5.3-beta.2",
   "private": true,
   "engines": {
     "node": ">=22 <25"
